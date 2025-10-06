@@ -9,14 +9,22 @@ import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
+      // --- NUEVA LÓGICA INTELIGENTE ---
       type: 'postgres',
-      host: 'localhost',
-      port: 5432, // Puerto por defecto de PostgreSQL
-      username: 'moisesgross', // Usuario por defecto, cámbialo si el tuyo es diferente
-      password: '2278', // ¡IMPORTANTE! Pon aquí la contraseña de tu PostgreSQL
-      database: 'pendientes_db', // El nombre que le daremos a nuestra base de datos
-      autoLoadEntities: true, // Carga automáticamente las entidades que definamos
-      synchronize: true, // ¡Solo para desarrollo! Crea las tablas automáticamente
+      // Si estamos en producción (Render), usa la URL de la variable de entorno
+      url: process.env.DATABASE_URL,
+      // Si estamos en local, usa la configuración de siempre
+      host: process.env.DATABASE_URL ? undefined : 'localhost',
+      port: process.env.DATABASE_URL ? undefined : 5432,
+      username: process.env.DATABASE_URL ? undefined : 'moisesgross',
+      password: process.env.DATABASE_URL ? undefined : 'tu_contraseña', // Cambia tu contraseña local si es necesario
+      database: process.env.DATABASE_URL ? undefined : 'pendientes_db',
+
+      // Opciones adicionales para Render
+      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+
+      autoLoadEntities: true,
+      synchronize: true, // Mantenlo en true para la fase inicial en Render
     }),
     UsuariosModule,
     PendientesModule,
