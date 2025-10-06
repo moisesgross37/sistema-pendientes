@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AdminPage from './components/AdminPage';
-import { Container, Card, Row, Col } from 'react-bootstrap';
+import { Container, Card, Col } from 'react-bootstrap';
 import './App.css';
 
 function App() {

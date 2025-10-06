@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 // --- Interfaces ---
 interface AdminPageProps {
   token: string;
-  setView: (view: string) => void;
+  setView: (view: 'login' | 'dashboard' | 'admin') => void;
 }
 
 interface Usuario {

@@ -5,7 +5,7 @@ import { Button, Table, Form, Modal, Card, Alert, Row, Col, Badge, ListGroup } f
 // --- Interfaces ---
 interface DashboardProps {
   token: string;
-  setView: (view: string) => void;
+  setView: (view: 'login' | 'dashboard' | 'admin') => void;
 }
 
 interface Usuario {
