@@ -28,7 +28,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
   const fetchUsers = async () => {
     setError('');
     try {
-      const res = await fetch('http://localhost:3007/usuarios', {
+      const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -50,7 +50,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('http://localhost:3007/usuarios', {
+      const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

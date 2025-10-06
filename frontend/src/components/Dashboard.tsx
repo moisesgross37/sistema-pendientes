@@ -52,7 +52,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
   const fetchPendientes = async () => {
     try {
-      const response = await fetch('http://localhost:3007/pendientes', {
+      const response = await fetch('https://sistema-pendientes.onrender.com/pendientes', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok)
@@ -66,7 +66,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:3007/usuarios', {
+      const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok)
@@ -116,7 +116,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           formData.append('files', file);
         });
 
-        const uploadRes = await fetch('http://localhost:3007/pendientes/upload', {
+        const uploadRes = await fetch('https://sistema-pendientes.onrender.com/pendientes/upload', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData,
@@ -130,7 +130,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
       const decodedToken: DecodedToken = jwtDecode(token);
       const asesorId = decodedToken.sub;
-      const response = await fetch('http://localhost:3007/pendientes', {
+      const response = await fetch('https://sistema-pendientes.onrender.com/pendientes', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -170,7 +170,7 @@ function Dashboard({ token, setView }: DashboardProps) {
     if (!editingPendiente) return;
     try {
       const res = await fetch(
-        `http://localhost:3007/pendientes/${editingPendiente.id}`,
+        `https://sistema-pendientes.onrender.com/pendientes/${editingPendiente.id}`,
         {
           method: 'PATCH',
           headers: {
@@ -454,9 +454,9 @@ function Dashboard({ token, setView }: DashboardProps) {
         <Modal.Body>
           {viewingImages?.map((imageName, index) => (
             <div key={index} className="mb-3 text-center">
-              <a href={`http://localhost:3007/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
+              <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
                 <img 
-                  src={`http://localhost:3007/pendientes/uploads/${imageName}`} 
+                  src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
                   alt={`Adjunto ${index + 1}`} 
                   style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #ddd' }}
                 />
