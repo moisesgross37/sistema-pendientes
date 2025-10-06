@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Prueba de API - Pendientes</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 2em auto; display: flex; flex-direction: column; gap: 2em;}
+        form { border: 1px solid #ccc; padding: 1.5em; border-radius: 8px; }
+        input, textarea, button, select { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        pre { background-color: #f0f0f0; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
+        h1, h2 { border-bottom: 2px solid #eee; padding-bottom: 0.5em;}
+    </style>
+</head>
+<body>
+    <div id="crear-seccion">
+        <h1>Crear Nuevo Pendiente</h1>
+        <form id="pendienteForm">
+            <input type="text" id="nombreCentro" placeholder="Nombre del Centro" value="Colegio XYZ">
+            <textarea id="descripcion" placeholder="Descripción del pendiente">Falta el polo talla L.</textarea>
+            <input type="number" id="asesorId" placeholder="ID del Asesor" value="1">
+            <button type="submit">Crear Pendiente</button>
+        </form>
+    </div>
+
+    <div id="actualizar-seccion">
+        <h1>Actualizar un Pendiente</h1>
+        <form id="updateForm">
+            <input type="number" id="pendienteId" placeholder="ID del Pendiente a Actualizar" value="1">
+            <input type="number" id="colaboradorId" placeholder="ID del Colaborador a Asignar" value="1">
+            <select id="status">
+                <option>Por Asignar</option>
+                <option selected>Asignado</option>
+                <option>En Proceso</option>
+                <option>Concluido</option>
+            </select>
+            <button type="submit">Actualizar Pendiente</button>
+        </form>
+    </div>
+
+    <div>
+        <h2>Respuesta del Servidor:</h2>
+        <pre id="response"></pre>
+    </div>
+
+    <script>
+        const responseContainer = document.getElementById('response');
+
+        // Formulario para CREAR
+        document.getElementById('pendienteForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            responseContainer.textContent = 'Creando...';
+            const data = {
+                nombreCentro: document.getElementById('nombreCentro').value,
+                descripcion: document.getElementById('descripcion').value,
+                asesorId: parseInt(document.getElementById('asesorId').value),
+            };
+            try {
+                const res = await fetch('http://localhost:3007/pendientes', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data),
+                });
+                responseContainer.textContent = JSON.stringify(await res.json(), null, 2);
+            } catch (error) {
+                responseContainer.textContent = 'Error de conexión.';
+            }
+        });
+
+        // Formulario para ACTUALIZAR
+        document.getElementById('updateForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            responseContainer.textContent = 'Actualizando...';
+            const pendienteId = document.getElementById('pendienteId').value;
+            const data = {
+                colaboradorAsignadoId: parseInt(document.getElementById('colaboradorId').value),
+                status: document.getElementById('status').value,
+            };
+            try {
+                const res = await fetch(`http://localhost:3007/pendientes/${pendienteId}`, {
+                    method: 'PATCH', // <-- Usamos el método PATCH
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data),
+                });
+                responseContainer.textContent = JSON.stringify(await res.json(), null, 2);
+            } catch (error) {
+                responseContainer.textContent = 'Error de conexión.';
+            }
+        });
+    </script>
+</body>
+</html>

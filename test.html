@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de API</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 2em auto; }
+        input, button { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        pre { background-color: #f0f0f0; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Crear Nuevo Usuario</h1>
+    <form id="userForm">
+        <input type="text" id="nombreCompleto" placeholder="Nombre Completo" value="Usuario de Prueba">
+        <input type="text" id="username" placeholder="Username" value="testuser1">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <input type="text" id="rol" placeholder="Rol" value="Asesor">
+        <button type="submit">Crear Usuario</button>
+    </form>
+
+    <h2>Respuesta del Servidor:</h2>
+    <pre id="response"></pre>
+
+    <script>
+        document.getElementById('userForm').addEventListener('submit', async function (event) {
+            event.preventDefault(); // Evita que la página se recargue
+
+            const data = {
+                nombreCompleto: document.getElementById('nombreCompleto').value,
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                rol: document.getElementById('rol').value,
+            };
+
+            const responseContainer = document.getElementById('response');
+            responseContainer.textContent = 'Enviando...';
+
+            try {
+                const response = await fetch('http://localhost:3007/usuarios', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                const result = await response.json();
+                responseContainer.textContent = JSON.stringify(result, null, 2);
+
+            } catch (error) {
+                console.error('Error:', error);
+                responseContainer.textContent = 'Error: No se pudo conectar al servidor. ¿Está encendido?';
+            }
+        });
+    </script>
+</body>
+</html>
