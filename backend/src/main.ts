@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { NestExpressApplication } from '@nestjs/platform-express'; // <-- Importación nueva
-import { join } from 'path'; // <-- Importación nueva
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
   // Le decimos a Nest que usaremos express de forma explícita
@@ -12,7 +12,7 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/pendientes/uploads/',
   });
-
+  
   app.enableCors();
   const port = process.env.PORT || 3007;
   await app.listen(port);
