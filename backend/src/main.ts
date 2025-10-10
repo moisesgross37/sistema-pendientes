@@ -1,15 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 
 async function bootstrap() {
-  // Le decimos a Nest que usaremos express de forma explícita
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // --- LÍNEA CLAVE ---
-  // Hacemos que la carpeta 'uploads' sea públicamente accesible
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Hacemos que la carpeta del disco de Render sea públicamente accesible
+  app.useStaticAssets('/opt/render/project/src/uploads', {
     prefix: '/pendientes/uploads/',
   });
   
