@@ -45,13 +45,6 @@ export class PendientesController {
     return response;
   }
 
-  // --- RUTA PÚBLICA PARA VER IMÁGENES ---
-  @Get('uploads/:filename')
-  // <-- ESTA RUTA YA NO TIENE GUARDIA, ES PÚBLICA
-  seeUploadedFile(@Param('filename') filename: string, @Res() res: Response) {
-    return res.sendFile(filename, { root: './uploads' });
-  }
-
   @Post()
   @UseGuards(JwtAuthGuard) // Ponemos un guardia aquí
   create(@Body() createPendienteDto: CreatePendienteDto) {
