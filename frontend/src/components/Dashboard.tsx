@@ -5,7 +5,7 @@ import { Button, Table, Form, Modal, Card, Alert, Row, Col, Badge, ListGroup } f
 // --- Interfaces ---
 interface DashboardProps {
   token: string;
-  setView: (view: 'login' | 'dashboard' | 'admin') => void;
+  setView: (view: string) => void;
 }
 
 interface Usuario {
@@ -17,6 +17,8 @@ interface Usuario {
 interface Pendiente {
   id: number;
   fechaCreacion: string;
+  fechaAsignacion: string | null;
+  fechaConclusion: string | null;
   nombreCentro: string;
   descripcion: string;
   status: string;
@@ -52,7 +54,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
   const fetchPendientes = async () => {
     try {
-      const response = await fetch('https://sistema-pendientes.onrender.com/pendientes', {
+      const response = await fetch('http://localhost:3007/pendientes', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok)
@@ -66,7 +68,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
+      const res = await fetch('http://localhost:3007/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok)
@@ -116,7 +118,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           formData.append('files', file);
         });
 
-        const uploadRes = await fetch('https://sistema-pendientes.onrender.com/pendientes/upload', {
+        const uploadRes = await fetch('http://localhost:3007/pendientes/upload', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData,
@@ -130,7 +132,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
       const decodedToken: DecodedToken = jwtDecode(token);
       const asesorId = decodedToken.sub;
-      const response = await fetch('https://sistema-pendientes.onrender.com/pendientes', {
+      const response = await fetch('http://localhost:3007/pendientes', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -170,7 +172,7 @@ function Dashboard({ token, setView }: DashboardProps) {
     if (!editingPendiente) return;
     try {
       const res = await fetch(
-        `https://sistema-pendientes.onrender.com/pendientes/${editingPendiente.id}`,
+        `http://localhost:3007/pendientes/${editingPendiente.id}`,
         {
           method: 'PATCH',
           headers: {
@@ -188,6 +190,24 @@ function Dashboard({ token, setView }: DashboardProps) {
       fetchPendientes();
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleDeletePendiente = async (id: number) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar el pendiente #${id}? Esta acción no se puede deshacer.`)) {
+      try {
+        const res = await fetch(`http://localhost:3007/pendientes/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'No se pudo eliminar el pendiente.');
+        }
+        fetchPendientes(); // Refresca la lista después de eliminar
+      } catch (err: any) {
+        setError(err.message);
+      }
     }
   };
 
@@ -331,6 +351,7 @@ function Dashboard({ token, setView }: DashboardProps) {
             <th>Archivos</th>
             <th>Descripción</th>
             <th>Asignado a</th>
+            <th>Fecha Asignación</th>
             <th>Estado</th>
             {(userRole === 'Administrador' || userRole === 'Colaborador') && <th>Acciones</th>}
           </tr>
@@ -366,12 +387,18 @@ function Dashboard({ token, setView }: DashboardProps) {
                 <td>
                   {p.colaboradorAsignado ? p.colaboradorAsignado.username : <span style={{ color: '#888' }}>No asignado</span>}
                 </td>
+                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
                 <td>{p.status}</td>
                 {(userRole === 'Administrador' || userRole === 'Colaborador') && (
                   <td>
-                    <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)}>
+                    <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
                       Actualizar
                     </Button>
+                    {userRole === 'Administrador' && (
+                      <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
+                        Eliminar
+                      </Button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -388,10 +415,12 @@ function Dashboard({ token, setView }: DashboardProps) {
           <tr>
             <th>ID</th>
             <th>Fecha Creación</th>
+            <th>Fecha Conclusión</th>
             <th>Centro</th>
             <th>Asesor</th>
             <th>Descripción</th>
             <th>Asignado a</th>
+            {(userRole === 'Administrador') && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
@@ -399,10 +428,18 @@ function Dashboard({ token, setView }: DashboardProps) {
             <tr key={p.id}>
               <td>{p.id}</td>
               <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
+              <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
               <td>{p.nombreCentro}</td>
               <td>{p.asesor.username}</td>
               <td>{p.descripcion}</td>
               <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
+              {userRole === 'Administrador' && (
+                <td>
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
+                    Eliminar
+                  </Button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -454,9 +491,9 @@ function Dashboard({ token, setView }: DashboardProps) {
         <Modal.Body>
           {viewingImages?.map((imageName, index) => (
             <div key={index} className="mb-3 text-center">
-              <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
+              <a href={`http://localhost:3007/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
                 <img 
-                  src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
+                  src={`http://localhost:3007/pendientes/uploads/${imageName}`} 
                   alt={`Adjunto ${index + 1}`} 
                   style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #ddd' }}
                 />
