@@ -8,10 +8,15 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  Res,
+  Delete, // <-- Importación nueva
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PendientesService } from './pendientes.service';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
@@ -23,52 +28,36 @@ export class PendientesController {
 
   @Post('upload')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(
-    FilesInterceptor('files', 5, {
-      storage: diskStorage({
-        destination: '/opt/render/project/src/uploads', // Usamos la ruta del disco persistente
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
-  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
-    const response = files.map(file => ({
-      originalName: file.originalname,
-      fileName: file.filename,
-    }));
-    return response;
-  }
+  @UseInterceptors(/*...código sin cambios...*/)
+  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) { /*...código sin cambios...*/ }
+
+  @Get('uploads/:filename')
+  seeUploadedFile(@Param('filename') filename: string, @Res() res: Response) { /*...código sin cambios...*/ }
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() createPendienteDto: CreatePendienteDto) {
-    return this.pendientesService.create(createPendienteDto);
-  }
+  create(@Body() createPendienteDto: CreatePendienteDto) { /*...código sin cambios...*/ }
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll() {
-    return this.pendientesService.findAll();
-  }
+  findAll() { /*...código sin cambios...*/ }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) {
-    return this.pendientesService.findOne(+id);
-  }
+  findOne(@Param('id') id: string) { /*...código sin cambios...*/ }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  update(
-    @Param('id') id: string,
-    @Body() updatePendienteDto: UpdatePendienteDto,
-  ) {
-    return this.pendientesService.update(+id, updatePendienteDto);
+  update(@Param('id') id: string, @Body() updatePendienteDto: UpdatePendienteDto) { /*...código sin cambios...*/ }
+
+  // --- NUEVA RUTA PARA ELIMINAR ---
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  remove(@Param('id') id: string, @Request() req) {
+    // Solo un administrador puede eliminar
+    if (req.user.rol !== 'Administrador') {
+      throw new ForbiddenException('Solo los administradores pueden eliminar pendientes.');
+    }
+    return this.pendientesService.remove(+id);
   }
 }
