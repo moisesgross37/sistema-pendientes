@@ -9,7 +9,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   Res,
-  Delete, // <-- Importación nueva
+  Delete,
   Request,
   ForbiddenException,
 } from '@nestjs/common';
@@ -28,29 +28,61 @@ export class PendientesController {
 
   @Post('upload')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(/*...código sin cambios...*/)
-  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) { /*...código sin cambios...*/ }
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      storage: diskStorage({
+        destination: '/opt/render/project/src/uploads',
+        filename: (req, file, cb) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          return cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
+    const response = files.map(file => ({
+      originalName: file.originalname,
+      fileName: file.filename,
+    }));
+    return response;
+  }
 
   @Get('uploads/:filename')
-  seeUploadedFile(@Param('filename') filename: string, @Res() res: Response) { /*...código sin cambios...*/ }
+  seeUploadedFile(@Param('filename') filename: string, @Res() res: Response) {
+    // Esta ruta se hizo pública a través de main.ts, pero la dejamos aquí por si acaso
+    return res.sendFile(filename, { root: '/opt/render/project/src/uploads' });
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() createPendienteDto: CreatePendienteDto) { /*...código sin cambios...*/ }
+  create(@Body() createPendienteDto: CreatePendienteDto) {
+    return this.pendientesService.create(createPendienteDto);
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll() { /*...código sin cambios...*/ }
+  findAll() {
+    return this.pendientesService.findAll();
+  }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) { /*...código sin cambios...*/ }
+  findOne(@Param('id') id: string) {
+    return this.pendientesService.findOne(+id);
+  }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  update(@Param('id') id: string, @Body() updatePendienteDto: UpdatePendienteDto) { /*...código sin cambios...*/ }
+  update(
+    @Param('id') id: string,
+    @Body() updatePendienteDto: UpdatePendienteDto,
+  ) {
+    return this.pendientesService.update(+id, updatePendienteDto);
+  }
 
-  // --- NUEVA RUTA PARA ELIMINAR ---
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string, @Request() req) {
