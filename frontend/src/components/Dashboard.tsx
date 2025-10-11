@@ -5,7 +5,7 @@ import { Button, Table, Form, Modal, Card, Alert, Row, Col, Badge, ListGroup } f
 // --- Interfaces ---
 interface DashboardProps {
   token: string;
-  setView: (view: 'login' | 'dashboard' | 'admin') => void;
+  setView: (view: string) => void;
 }
 
 interface Usuario {
@@ -204,7 +204,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           const errorData = await res.json();
           throw new Error(errorData.message || 'No se pudo eliminar el pendiente.');
         }
-        fetchPendientes(); // Refresca la lista después de eliminar
+        fetchPendientes();
       } catch (err: any) {
         setError(err.message);
       }
@@ -415,33 +415,58 @@ function Dashboard({ token, setView }: DashboardProps) {
           <tr>
             <th>ID</th>
             <th>Fecha Creación</th>
+            <th>Fecha Asignación</th>
             <th>Fecha Conclusión</th>
+            <th>Tiempo de Realización</th>
             <th>Centro</th>
             <th>Asesor</th>
+            <th>Archivos</th>
             <th>Descripción</th>
             <th>Asignado a</th>
-            {(userRole === 'Administrador') && <th>Acciones</th>}
+            {userRole === 'Administrador' && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {pendientesConcluidos.map((p) => (
-            <tr key={p.id}>
-              <td>{p.id}</td>
-              <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
-              <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
-              <td>{p.nombreCentro}</td>
-              <td>{p.asesor.username}</td>
-              <td>{p.descripcion}</td>
-              <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
-              {userRole === 'Administrador' && (
+          {pendientesConcluidos.map((p) => {
+            let tiempoRealizacion = '-';
+            if (p.fechaAsignacion && p.fechaConclusion) {
+              const fechaAsignacion = new Date(p.fechaAsignacion);
+              const fechaConclusion = new Date(p.fechaConclusion);
+              fechaAsignacion.setHours(0, 0, 0, 0);
+              fechaConclusion.setHours(0, 0, 0, 0);
+              const diffTiempo = fechaConclusion.getTime() - fechaAsignacion.getTime();
+              const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
+              tiempoRealizacion = `${diffDias} día(s)`;
+            }
+
+            return (
+              <tr key={p.id}>
+                <td>{p.id}</td>
+                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
+                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
+                <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
+                <td>{tiempoRealizacion}</td>
+                <td>{p.nombreCentro}</td>
+                <td>{p.asesor.username}</td>
                 <td>
-                  <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
-                    Eliminar
-                  </Button>
+                  {p.imagenes && p.imagenes.length > 0 && (
+                    <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
+                      Ver ({p.imagenes.length})
+                    </Button>
+                  )}
                 </td>
-              )}
-            </tr>
-          ))}
+                <td>{p.descripcion}</td>
+                <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
+                {userRole === 'Administrador' && (
+                  <td>
+                    <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
+                      Eliminar
+                    </Button>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </Table>
       
