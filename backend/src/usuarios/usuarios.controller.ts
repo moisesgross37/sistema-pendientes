@@ -4,22 +4,23 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('usuarios')
-@UseGuards(JwtAuthGuard) // Seguridad reactivada para todo el controlador
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
+  // La creación de usuarios está protegida y verifica el rol de Admin
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(@Request() req, @Body() createUsuarioDto: CreateUsuarioDto) {
-    // Verificación de rol reactivada
     if (req.user.rol !== 'Administrador') {
-     throw new ForbiddenException('Solo los administradores pueden crear usuarios.');
+      throw new ForbiddenException('Solo los administradores pueden crear usuarios.');
     }
     return this.usuariosService.create(createUsuarioDto);
   }
 
+  // La búsqueda de todos los usuarios está protegida y verifica el rol de Admin
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll(@Request() req) {
-    // Verificación de rol
     if (req.user.rol !== 'Administrador') {
       throw new ForbiddenException('Solo los administradores pueden ver la lista de usuarios.');
     }
