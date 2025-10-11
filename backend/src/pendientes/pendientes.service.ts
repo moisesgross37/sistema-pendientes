@@ -16,7 +16,7 @@ export class PendientesService {
   ) {}
 
   async create(createPendienteDto: CreatePendienteDto): Promise<Pendiente> {
-    const { asesorId, nombreCentro, descripcion, imagenes } = createPendienteDto; // <-- Obtenemos las imágenes del DTO
+    const { asesorId, nombreCentro, descripcion, imagenes } = createPendienteDto;
 
     const asesor = await this.usuariosRepository.findOneBy({ id: asesorId });
     if (!asesor) {
@@ -27,18 +27,23 @@ export class PendientesService {
       nombreCentro,
       descripcion,
       asesor: asesor,
-      imagenes: imagenes, // <-- AÑADIMOS LAS IMÁGENES AL OBJETO A GUARDAR
+      imagenes: imagenes,
     });
 
     return this.pendientesRepository.save(nuevoPendiente);
   }
 
+  // --- CAMBIO AQUÍ ---
   async findAll() {
-    return this.pendientesRepository.find();
+    return this.pendientesRepository.find({
+      relations: ['asesor', 'colaboradorAsignado'], // Asegura que siempre se carguen los datos del asesor y colaborador
+      order: {
+        id: 'ASC', // Ordena los resultados por el campo 'id' de forma Ascendente
+      },
+    });
   }
 
   findOne(id: number) {
-    // Esta función aún es un placeholder, la construiremos si es necesario
     return this.pendientesRepository.findOne({ where: {id}, relations: ['asesor', 'colaboradorAsignado'] });
   }
 
