@@ -198,7 +198,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           },
           body: JSON.stringify({
             status: selectedStatus,
-            colaboradorAsignadoId: parseInt(selectedColaboradorId) || undefined,
+            colaboradorAsignado: parseInt(selectedColaboradorId) || null,
           }),
         },
       );
