@@ -15,11 +15,12 @@ interface Usuario {
   rol: string;
 }
 
+interface Pendiente {
   id: number;
   fechaCreacion: string;
   fechaAsignacion: string | null;
   fechaConclusion: string | null;
-  nombreCentro: string;
+nameCentro: string;
   descripcion: string;
   status: string;
   asesor: Usuario;
@@ -27,8 +28,7 @@ interface Usuario {
   imagenes?: string[];
 }
 
-interface DecodedToken {
-  sub: number;
+interface DecodedToken {  sub: number;
   username: string;
   rol: string;
 }
