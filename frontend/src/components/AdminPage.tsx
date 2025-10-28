@@ -11,7 +11,6 @@ interface Usuario {
   username: string;
   nombreCompleto: string;
   rol: string;
-  // Añadimos el estado, ya que probablemente lo necesitemos
   isActive: boolean; 
 }
 
@@ -19,6 +18,7 @@ interface Usuario {
 function AdminPage({ token, setView }: AdminPageProps) {
   const [users, setUsers] = useState<Usuario[]>([]);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(''); // Estado para mensajes de éxito
 
   // Estados para el formulario de creación
   const [username, setUsername] = useState('');
@@ -26,9 +26,15 @@ function AdminPage({ token, setView }: AdminPageProps) {
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [rol, setRol] = useState('Asesor');
 
+  // Función para limpiar mensajes
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  }
+
   // Función para obtener la lista de usuarios
   const fetchUsers = async () => {
-    setError('');
+    clearMessages();
     try {
       const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
         headers: { Authorization: `Bearer ${token}` },
@@ -45,12 +51,12 @@ function AdminPage({ token, setView }: AdminPageProps) {
   // useEffect se ejecuta una vez al cargar el componente para traer la lista
   useEffect(() => {
     fetchUsers();
-  }, [token]); // El array de dependencias es correcto si 'token' es estable
+  }, [token]); 
 
   // Función para manejar la creación de un nuevo usuario
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    clearMessages();
     try {
       const res = await fetch('https://sistema-pendientes.onrender.com/usuarios', {
         method: 'POST',
@@ -68,54 +74,105 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setNombreCompleto('');
       setUsername('');
       setPassword('');
-      // ¡Magia! Volvemos a pedir la lista para que se actualice
-      fetchUsers();
+      setSuccess('Usuario creado con éxito.');
+      fetchUsers(); // Recargamos la lista
     } catch (err: any) {
       setError(err.message);
     }
   };
 
-  // ================================================================
-  // ===== 🚀 INICIO DE LAS NUEVAS FUNCIONES AÑADIDAS 🚀 =====
-  // ================================================================
-
-  /**
-   * Maneja la edición del rol de un usuario
-   */
+  // Función para editar Rol
   const handleEditRol = async (userId: number, currentRol: string) => {
-    // 1. Pedir el nuevo rol (puedes cambiar esto por un <select> en un modal)
+    clearMessages();
     const nuevoRol = prompt(
       'Introduce el nuevo rol (Asesor, Colaborador, Administrador):',
       currentRol
     );
 
-    // Si el usuario cancela o no pone nada, no hacemos nada
     if (!nuevoRol || nuevoRol === currentRol) {
-      console.log('Edición de rol cancelada.');
       return;
     }
 
-    console.log(`Intentando cambiar rol del usuario ${userId} a ${nuevoRol}`);
-    setError(''); // Limpiar errores
-
     try {
-      // !! AVISO: Esta URL es un SUPUESTO. Necesito ver tu 'usuarios.controller.ts'
       const res = await fetch(`https://sistema-pendientes.onrender.com/usuarios/${userId}/rol`, {
-        method: 'PATCH', // Usamos PATCH para actualizaciones parciales
+        method: 'PATCH', 
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ rol: nuevoRol })
       });
+      if (!res.ok) throw new Error((await res.json()).message || 'No se pudo actualizar el rol.');
+      setSuccess('Rol actualizado con éxito.');
+      fetchUsers(); 
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
+  // Función para cambiar Estado
+  const handleChangeEstado = async (userId: number, currentStatus: boolean) => {
+    clearMessages();
+    const accion = currentStatus ? 'DESACTIVAR' : 'ACTIVAR';
+    if (!confirm(`¿Estás seguro de que quieres ${accion} al usuario con ID ${userId}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`https://sistema-pendientes.onrender.com/usuarios/${userId}/estado`, {
+        method: 'PATCH',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+         },
+        body: JSON.stringify({ isActive: !currentStatus })
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'No se pudo cambiar el estado.');
+      setSuccess(`Usuario ${accion.toLowerCase()}do con éxito.`);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  // ================================================================
+  // ===== 🚀 INICIO DE LAS NUEVAS FUNCIONES FRONTEND 🚀 =====
+  // ================================================================
+
+  /**
+   * Maneja el reseteo de contraseña de un usuario
+   */
+  const handleResetPassword = async (userId: number, username: string) => {
+    clearMessages();
+    const nuevaClave = prompt(`Introduce la NUEVA contraseña para el usuario "${username}":`);
+
+    if (!nuevaClave) {
+      alert('Reseteo cancelado.');
+      return;
+    }
+
+    if (nuevaClave.length < 4) {
+      alert('La contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`https://sistema-pendientes.onrender.com/usuarios/${userId}/password`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password: nuevaClave })
+      });
+      
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'No se pudo actualizar el rol.');
+        throw new Error(errData.message || 'No se pudo resetear la contraseña.');
       }
       
-      // Éxito: recargamos la lista de usuarios para ver el cambio
-      fetchUsers(); 
+      setSuccess(`Contraseña de "${username}" actualizada con éxito.`);
+      // No es necesario recargar la lista, solo mostrar éxito
 
     } catch (err: any) {
       setError(err.message);
@@ -123,40 +180,33 @@ function AdminPage({ token, setView }: AdminPageProps) {
   };
 
   /**
-   * Maneja el cambio de estado (activar/desactivar) de un usuario
+   * Maneja la eliminación de un usuario
    */
-  const handleChangeEstado = async (userId: number, currentStatus: boolean) => {
-    // 1. Confirmar la acción
-    const accion = currentStatus ? 'DESACTIVAR' : 'ACTIVAR';
-    const confirmar = confirm(`¿Estás seguro de que quieres ${accion} al usuario con ID ${userId}?`);
-
-    if (!confirmar) {
-      console.log('Cambio de estado cancelado.');
-      return;
-    }
-
-    console.log(`Intentando ${accion} al usuario ${userId}`);
-    setError(''); // Limpiar errores
+  const handleDeleteUser = async (userId: number, username: string) => {
+    clearMessages();
+    
+    // Doble confirmación para una acción destructiva
+    const confirm1 = confirm(`¿Estás SEGURO de que quieres ELIMINAR al usuario "${username}"?\n\n¡Esta acción es irreversible!`);
+    if (!confirm1) return;
+    
+    const confirm2 = confirm(`ÚLTIMA ADVERTENCIA:\n\nEliminar a "${username}". ¿Continuar?`);
+    if (!confirm2) return;
 
     try {
-      // !! AVISO: Esta URL también es un SUPUESTO.
-      // Podría ser /usuarios/:id/estado, /usuarios/:id/activar, etc.
-      const res = await fetch(`https://sistema-pendientes.onrender.com/usuarios/${userId}/estado`, {
-        method: 'PATCH', // Usamos PATCH
+      const res = await fetch(`https://sistema-pendientes.onrender.com/usuarios/${userId}`, {
+        method: 'DELETE',
         headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-         },
-        body: JSON.stringify({ isActive: !currentStatus })
+          'Authorization': `Bearer ${token}`
+         }
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'No se pudo cambiar el estado.');
+        throw new Error(errData.message || 'No se pudo eliminar al usuario.');
       }
 
-      // Éxito: recargamos la lista
-      fetchUsers();
+      setSuccess(`Usuario "${username}" eliminado con éxito.`);
+      fetchUsers(); // ¡Absolutamente necesario recargar la lista!
 
     } catch (err: any) {
       setError(err.message);
@@ -164,7 +214,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
   };
 
   // ================================================================
-  // ===== 🚀 FIN DE LAS NUEVAS FUNCIONES AÑADIDAS 🚀 =====
+  // ===== 🚀 FIN DE LAS NUEVAS FUNCIONES FRONTEND 🚀 =====
   // ================================================================
 
 
@@ -175,8 +225,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
       <hr />
       
       <form onSubmit={handleCreateUser} style={{ border: '1px solid #ccc', padding: '1.5em', borderRadius: '8px', marginBottom: '2em' }}>
-        {/* ... (tu formulario de crear usuario sigue igual) ... */}
-        <h3>Añadir Nuevo Usuario</h3>
+        <h3>Añadir Nuevo Usuario</h3>
         <input type="text" placeholder="Nombre Completo" value={nombreCompleto} onChange={e => setNombreCompleto(e.target.value)} required />
         <input type="text" placeholder="Nombre de Usuario" value={username} onChange={e => setUsername(e.target.value)} required />
         <input type="password" placeholder="Contraseña Temporal" value={password} onChange={e => setPassword(e.target.value)} required />
@@ -186,8 +235,11 @@ function AdminPage({ token, setView }: AdminPageProps) {
           <option value="Administrador">Administrador</option>
         </select>
         <button type="submit">Crear Usuario</button>
-        {error && <p style={{ color: 'red', marginTop: '1em' }}>{error}</p>}
       </form>
+      
+      {/* Mensajes de Estado */}
+      {error && <p style={{ color: 'red', padding: '1em', backgroundColor: '#fdd' }}>Error: {error}</p>}
+      {success && <p style={{ color: 'green', padding: '1em', backgroundColor: '#dfd' }}>Éxito: {success}</p>}
 
       <h3>Usuarios Actuales</h3>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -196,7 +248,6 @@ function AdminPage({ token, setView }: AdminPageProps) {
             <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Nombre Completo</th>
             <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Nombre de Usuario</th>
             <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Rol</th>
-            {/* Añadí una columna de Estado para que 'Cambiar Estado' tenga sentido */}
             <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Estado</th>
             <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'left' }}>Acciones</th>
           </tr>
@@ -207,17 +258,12 @@ function AdminPage({ token, setView }: AdminPageProps) {
               <td style={{ padding: '8px', border: '1px solid #ddd' }}>{user.nombreCompleto}</td>
               <td style={{ padding: '8px', border: '1px solid #ddd' }}>{user.username}</td>
               <td style={{ padding: '8px', border: '1px solid #ddd' }}>{user.rol}</td>
-              {/* Mostramos el estado actual */}
               <td style={{ padding: '8px', border: '1px solid #ddd' }}>
-                {user.isActive ? 'Activo' : 'Inactivo'}
+                <span style={{ color: user.isActive ? 'green' : 'red', fontWeight: 'bold' }}>
+                  {user.isActive ? 'Activo' : 'Inactivo'}
+                </span>
               </td>
-              <td style={{ padding: '8px', border: '1px solid #ddd' }}>
-                {/* ====================================================
-                  ===== 🚀 AQUÍ ESTÁ LA CORRECCIÓN DE LOS BOTONES 🚀 =====
-                  ====================================================
-                  Usamos una función de flecha () => ... para pasar el ID
-                  del usuario a nuestras nuevas funciones.
-                */}
+              <td style={{ padding: '8px', border: '1px solid #ddd', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                 <button 
                   style={{ marginRight: '5px' }}
                   onClick={() => handleEditRol(user.id, user.rol)}
@@ -225,10 +271,27 @@ function AdminPage({ token, setView }: AdminPageProps) {
                   Editar Rol
                 </button>
                 <button
+                  style={{ marginRight: '5px' }}
                   onClick={() => handleChangeEstado(user.id, user.isActive)}
                 >
-                  {/* El texto del botón cambia según el estado */}
                   {user.isActive ? 'Desactivar' : 'Activar'}
+                </button>
+
+                {/* ==============================================
+                  ===== 🚀 AQUÍ ESTÁN LOS NUEVOS BOTONES 🚀 =====
+                  ==============================================
+                */}
+                <button
+                  style={{ marginRight: '5px', backgroundColor: '#ffe0b3' }}
+                  onClick={() => handleResetPassword(user.id, user.username)}
+                >
+                  Resetear Clave
+                </button>
+                <button
+                  style={{ backgroundColor: '#ffcdd2', color: '#b71c1c' }}
+                  onClick={() => handleDeleteUser(user.id, user.username)}
+                >
+                  Eliminar
                 </button>
               </td>
             </tr>
