@@ -127,7 +127,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-        
+    
     try {
       const uploadedFileNames: string[] = [];
       if (selectedFiles.length > 0) {
@@ -144,7 +144,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
         const uploadData = await uploadRes.json();
         if (!uploadRes.ok) throw new Error('Falló la subida de uno o más archivos.');
-            
+        
         uploadData.forEach((file: any) => uploadedFileNames.push(file.fileName));
       }
 
@@ -158,18 +158,18 @@ function Dashboard({ token, setView }: DashboardProps) {
         },
         body: JSON.stringify({
           nombreCentro: newNombreCentro,
-       descripcion: newDescripcion,
+          descripcion: newDescripcion,
           asesorId: asesorId,
           imagenes: uploadedFileNames,
         }),
       });
       if (!response.ok) throw new Error('No se pudo crear el pendiente.');
-    
+      
       setNewNombreCentro('');
       setNewDescripcion('');
       setSelectedFiles([]);
       if(fileInputRef.current) fileInputRef.current.value = "";
-  setShowCreateForm(false);
+      setShowCreateForm(false);
       fetchPendientes();
 
     } catch (err: any) {
@@ -179,7 +179,7 @@ function Dashboard({ token, setView }: DashboardProps) {
 
   const handleOpenUpdateModal = (pendiente: Pendiente) => {
     setEditingPendiente(pendiente);
-  setSelectedStatus(pendiente.status);
+    setSelectedStatus(pendiente.status);
     setSelectedColaboradorId(
       pendiente.colaboradorAsignado?.id.toString() || '',
     );
@@ -193,14 +193,14 @@ function Dashboard({ token, setView }: DashboardProps) {
         `https://sistema-pendientes.onrender.com/pendientes/${editingPendiente.id}`,
         {
           method: 'PATCH',
-       headers: {
+          headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             status: selectedStatus,
             colaboradorAsignadoId: parseInt(selectedColaboradorId) || undefined,
-content       }),
+          }),
         },
       );
       if (!res.ok) throw new Error('Falló la actualización.');
@@ -213,14 +213,14 @@ content       }),
 
   const handleDeletePendiente = async (id: number) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar el pendiente #${id}? Esta acción no se puede deshacer.`)) {
-actions     try {
+      try {
         const res = await fetch(`https://sistema-pendientes.onrender.com/pendientes/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) {
           const errorData = await res.json();
-JSON         throw new Error(errorData.message || 'No se pudo eliminar el pendiente.');
+          throw new Error(errorData.message || 'No se pudo eliminar el pendiente.');
         }
         fetchPendientes();
       } catch (err: any) {
@@ -234,7 +234,7 @@ JSON         throw new Error(errorData.message || 'No se pudo eliminar el pe
     if (filtroAsignado) {
       if (filtroAsignado === 'ninguno' && p.colaboradorAsignado) return false;
       if (filtroAsignado !== 'ninguno' && p.colaboradorAsignado?.id !== parseInt(filtroAsignado)) return false;
-    }
+    }
     if (filtroDias) {
       const fechaCreacion = new Date(p.fechaCreacion);
       const hoy = new Date();
@@ -244,12 +244,10 @@ JSON         throw new Error(errorData.message || 'No se pudo eliminar el pe
       const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
       if (filtroDias === '0-4' && diffDias >= 5) return false;
       if (filtroDias === '5-9' && (diffDias < 5 || diffDias >= 10)) return false;
- }
       if (filtroDias === '10+' && diffDias < 10) return false;
     }
     return true;
   });
-
 
 
 const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido');
@@ -427,36 +425,34 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
           {showCreateForm && (
             <Card>
               <Card.Body>
-         	<Card.Title>Nuevo Pendiente</Card.Title>
+                <Card.Title>Nuevo Pendiente</Card.Title>
                 <Form onSubmit={handleCreateSubmit}>
                   <Form.Group className="mb-3"><Form.Label>Nombre del Centro</Form.Label><Form.Control type="text" value={newNombreCentro} onChange={(e) => setNewNombreCentro(e.target.value)} required /></Form.Group>
                   <Form.Group className="mb-3"><Form.Label>Descripción</Form.Label><Form.Control as="textarea" rows={3} value={newDescripcion} onChange={(e) => setNewDescripcion(e.target.value)} required /></Form.Group>
                   <Form.Group className="mb-3">
-                	<Form.Label>Adjuntar Imágenes (Opcional)</Form.Label>
-                	<Form.Control type="file" ref={fileInputRef} multiple onChange={handleFileChange} />
-              	</Form.Group>
-              	{selectedFiles.length > 0 && (
-              	  <ListGroup className="mb-3">
-              		{selectedFiles.map((file, index) => (
-              		  <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-              			{file.name}
-              			<Button variant="danger" size="sm" onClick={() => handleRemoveFile(index)}>X</Button>
-              		  </ListGroup.Item>
-              		))}
-              	  </ListGroup>
-            )}
-              	<Button variant="success" type="submit">Guardar Pendiente</Button>
-          	  </Form>
-          	</Card.Body>
-          </Card>
-    	)}
-      </div>
-  	)}
-  	 
-  	<h3>Lista de Pendientes Activos</h3>
-  	{error && <Alert variant="danger">{error}</Alert>}
-
-
+                    <Form.Label>Adjuntar Imágenes (Opcional)</Form.Label>
+                    <Form.Control type="file" ref={fileInputRef} multiple onChange={handleFileChange} />
+                  </Form.Group>
+                  {selectedFiles.length > 0 && (
+                    <ListGroup className="mb-3">
+                    D {selectedFiles.map((file, index) => (
+                        <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
+                          {file.name}
+                          <Button variant="danger" size="sm" onClick={() => handleRemoveFile(index)}>X</Button>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  )}
+                  <Button variant="success" type="submit">Guardar Pendiente</Button>
+                </Form>
+              </Card.Body>
+            </Card>
+          )}
+        </div>
+      )}
+      
+      <h3>Lista de Pendientes Activos</h3>
+      {error && <Alert variant="danger">{error}</Alert>}
 
 
 <h3>Lista de Pendientes Activos</h3>
@@ -512,8 +508,10 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
         ===== 🚀 FIN DE LA NUEVA SECCIÓN DE PESTAÑAS 🚀 =====
         ================================================================
       */}
-      
-      <hr className="my-5" />
+
+
+
+      <hr className="my-5" />
       <h3>Historial de Pendientes Concluidos</h3>
       
       <Table striped bordered hover responsive size="sm">
@@ -561,7 +559,7 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
                     </Button>
                   )}
                 </td>
-            <td>{p.descripcion}</td>
+                <td>{p.descripcion}</td>
                 <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
                 {userRole === 'Administrador' && (
                   <td>
@@ -585,7 +583,7 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
             <Form.Group className="mb-3">
               <Form.Label>Estado</Form.Label>
               <Form.Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
-              <option value="Por Asignar" disabled></option>
+                <option value="Por Asignar" disabled></option>
                 <option value="Iniciado">Iniciado</option>
                 <option value="Fuera de oficina">Fuera de oficina</option>
                 <option value="En administración">En administración</option>
@@ -594,7 +592,7 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
             </Form.Group>
             {userRole === 'Administrador' && (
               <Form.Group className="mb-3">
-          	<Form.Label>Asignar a Colaborador</Form.Label>
+                <Form.Label>Asignar a Colaborador</Form.Label>
                 <Form.Select value={selectedColaboradorId} onChange={(e) => setSelectedColaboradorId(e.target.value)}>
                   <option value="">-- Sin Asignar --</option>
                   {allUsers
@@ -605,12 +603,12 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
                       </option>
                     ))}
                 </Form.Select>
-           </Form.Group>
+              </Form.Group>
             )}
             <div className="d-flex justify-content-end gap-2 mt-4">
               <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
               <Button variant="primary" type="submit">Guardar Cambios</Button>
-         	</div>
+            </div>
           </Form>
         </Modal.Body>
       </Modal>
@@ -621,7 +619,7 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
         </Modal.Header>
         <Modal.Body>
           {viewingImages?.map((imageName, index) => (
-         <div key={index} className="mb-3 text-center">
+            <div key={index} className="mb-3 text-center">
               <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
                 <img 
                   src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
@@ -635,7 +633,7 @@ const pendientesActivos = filteredPendientes.filter(p => p.status !== 'Concluido
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setViewingImages(null)}>
-           Cerrar
+            Cerrar
           </Button>
         </Modal.Footer>
       </Modal>
