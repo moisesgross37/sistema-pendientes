@@ -16,4 +16,7 @@ export class Usuario {
 
   @Column({ default: 'Asesor' }) // Si no especificamos un rol, por defecto será 'Asesor'
   rol: string;
+
+  @Column({ type: 'boolean', default: true })
+  isActive: boolean;
 }
