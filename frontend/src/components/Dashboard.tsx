@@ -20,7 +20,7 @@ interface Pendiente {
   fechaCreacion: string;
   fechaAsignacion: string | null;
   fechaConclusion: string | null;
-nameCentro: string;
+  nombreCentro: string;
   descripcion: string;
   status: string;
   asesor: Usuario;
