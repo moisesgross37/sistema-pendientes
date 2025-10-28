@@ -261,7 +261,6 @@ function Dashboard({ token, setView }: DashboardProps) {
     }, {} as Record<string, { username: string; normal: number; urgente: number; critico: number; total: number; }>);
 
   const performanceArray = Object.values(performanceData);
-      // Bloque 2 - (Inicio del 'return' y corrección del panel de Desempeño)
 return (
     <div>
       {userRole === 'Administrador' && (
@@ -559,4 +558,3 @@ return (
 }
 
 export default Dashboard;
-// Fin Bloque 3 - (Este es el final del archivo)
