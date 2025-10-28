@@ -1,16 +1,19 @@
 import {
   Injectable,
   ConflictException,
-  NotFoundException, // <-- Importante
+  NotFoundException,
+  ForbiddenException, // <-- Importante
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Usuario } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import * as bcrypt from 'bcrypt';
-// --- Nuevos Imports ---
 import { UpdateRolDto } from './dto/update-rol.dto';
 import { UpdateEstadoDto } from './dto/update-estado.dto';
+// --- Nuevo Import ---
+import { ResetPasswordDto } from './dto/reset-password.dto';
+
 
 @Injectable()
 export class UsuariosService {
@@ -21,36 +24,31 @@ export class UsuariosService {
 
   async create(createUsuarioDto: CreateUsuarioDto) {
     const { username, password, nombreCompleto, rol } = createUsuarioDto;
-
+    // ... (tu código de create sigue igual) ...
     const usuarioExistente = await this.usuariosRepository.findOne({
       where: { username },
     });
     if (usuarioExistente) {
       throw new ConflictException('El nombre de usuario ya existe');
     }
-
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(password, salt);
-
     const nuevoUsuario = this.usuariosRepository.create({
       username,
       password: hashedPassword,
       nombreCompleto,
       rol,
-      isActive: true, // <-- AÑADIDO: Asegura que el nuevo usuario esté activo
+      isActive: true, 
     });
-
     await this.usuariosRepository.save(nuevoUsuario);
-
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...usuarioSinPassword } = nuevoUsuario;
     return usuarioSinPassword;
   }
 
   async findAll() {
+    // ... (tu código de findAll sigue igual) ...
     const usuarios = await this.usuariosRepository.find();
-
-    // Ahora que la entidad tiene 'isActive', esto lo incluirá
     return usuarios.map((usuario) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...usuarioSinPassword } = usuario;
@@ -59,57 +57,73 @@ export class UsuariosService {
   }
 
   async findOneByUsername(username: string): Promise<Usuario | null> {
+    // ... (tu código de findOneByUsername sigue igual) ...
     return this.usuariosRepository.findOne({ where: { username } });
   }
 
-  // ================================================================
-  // ===== 🚀 INICIO DE LAS NUEVAS FUNCIONES 🚀 =====
-  // ================================================================
-
   async updateRol(id: number, updateRolDto: UpdateRolDto) {
+    // ... (tu código de updateRol sigue igual) ...
     const { rol } = updateRolDto;
-
-    // Buscamos el usuario
     const usuario = await this.usuariosRepository.findOne({ where: { id } });
     if (!usuario) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
-
-    // Actualizamos el rol y guardamos
     usuario.rol = rol;
     await this.usuariosRepository.save(usuario);
-
-    // Devolvemos el usuario sin la contraseña
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...usuarioSinPassword } = usuario;
     return usuarioSinPassword;
   }
 
   async updateEstado(id: number, updateEstadoDto: UpdateEstadoDto) {
+    // ... (tu código de updateEstado sigue igual) ...
     const { isActive } = updateEstadoDto;
+    const usuario = await this.usuariosRepository.findOne({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+    usuario.isActive = isActive;
+    await this.usuariosRepository.save(usuario);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...usuarioSinPassword } = usuario;
+    return usuarioSinPassword;
+  }
 
-    // Buscamos el usuario
+  // ================================================================
+  // ===== 🚀 INICIO DE LAS NUEVAS FUNCIONES 🚀 =====
+  // ================================================================
+
+  async resetPassword(id: number, resetPasswordDto: ResetPasswordDto) {
+    const { password } = resetPasswordDto;
     const usuario = await this.usuariosRepository.findOne({ where: { id } });
     if (!usuario) {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
-    // Actualizamos el estado y guardamos
-    usuario.isActive = isActive;
+    // Hashear la nueva contraseña
+    const salt = await bcrypt.genSalt();
+    usuario.password = await bcrypt.hash(password, salt);
+    
     await this.usuariosRepository.save(usuario);
-
-    // Devolvemos el usuario sin la contraseña
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...usuarioSinPassword } = usuario;
-    return usuarioSinPassword;
+    return { message: 'Contraseña actualizada con éxito.' };
   }
-  
-  // ================================================================
-  // ===== 🚀 FIN DE LAS NUEVAS FUNCIONES 🚀 =====
-  // ================================================================
 
-  findOne(id: number) {
-    // Este método sigue siendo un placeholder
-    return `This action returns a #${id} usuario`;
+  async remove(id: number) {
+    const usuario = await this.usuariosRepository.findOne({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    // Doble chequeo de seguridad: No permitir borrar Administradores
+    // (Puedes quitar esto si quieres poder borrar otros admins)
+    if (usuario.rol === 'Administrador') {
+      throw new ForbiddenException('No se puede eliminar a un usuario Administrador.');
+    }
+
+    const deleteResult = await this.usuariosRepository.delete(id);
+    if (deleteResult.affected === 0) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+    return { message: 'Usuario eliminado con éxito.' };
   }
 }
