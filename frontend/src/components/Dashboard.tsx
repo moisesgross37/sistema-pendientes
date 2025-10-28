@@ -289,16 +289,15 @@ function Dashboard({ token, setView }: DashboardProps) {
                     <Badge bg="warning" className="p-2 text-dark">Urgente ({colab.urgente})</Badge>
                     <Badge bg="danger" className="p-2">Crítico ({colab.critico})</Badge>
                   </div>
-    _               </Card.Body>
-                </Card>
-              </Col>
+                </Card.Body>
+              </Card>
+            </Col>
           )) : <p>No hay pendientes asignados para mostrar métricas.</p>}
         </Row>
         <hr />
       </>
       
       {(userRole === 'Asesor' || userRole === 'Administrador') && (
-// ... (El resto de tu archivo sigue exactamente igual) ...
         <div className="mb-4">
           <Button variant="primary" onClick={() => setShowCreateForm(!showCreateForm)} className="mb-3">
             {showCreateForm ? 'Cancelar Creación' : 'Crear Nuevo Pendiente'}
@@ -307,7 +306,7 @@ function Dashboard({ token, setView }: DashboardProps) {
             <Card>
               <Card.Body>
                 <Card.Title>Nuevo Pendiente</Card.Title>
-            _     <Form onSubmit={handleCreateSubmit}>
+                <Form onSubmit={handleCreateSubmit}>
                   <Form.Group className="mb-3"><Form.Label>Nombre del Centro</Form.Label><Form.Control type="text" value={newNombreCentro} onChange={(e) => setNewNombreCentro(e.target.value)} required /></Form.Group>
                   <Form.Group className="mb-3"><Form.Label>Descripción</Form.Label><Form.Control as="textarea" rows={3} value={newDescripcion} onChange={(e) => setNewDescripcion(e.target.value)} required /></Form.Group>
                   <Form.Group className="mb-3">
@@ -340,7 +339,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           <Card.Title>Filtros</Card.Title>
           <Form>
             <Row>
-          _     <Col md={4}><Form.Group><Form.Label>Filtrar por Asesor</Form.Label><Form.Select value={filtroAsesor} onChange={e => setFiltroAsesor(e.target.value)}><option value="">Todos</option>{[...new Map(pendientes.map(p => [p.asesor.id, p.asesor])).values()].map(asesor => (<option key={asesor.id} value={asesor.id}>{asesor.username}</option>))}</Form.Select></Form.Group></Col>
+              <Col md={4}><Form.Group><Form.Label>Filtrar por Asesor</Form.Label><Form.Select value={filtroAsesor} onChange={e => setFiltroAsesor(e.target.value)}><option value="">Todos</option>{[...new Map(pendientes.map(p => [p.asesor.id, p.asesor])).values()].map(asesor => (<option key={asesor.id} value={asesor.id}>{asesor.username}</option>))}</Form.Select></Form.Group></Col>
               <Col md={4}><Form.Group><Form.Label>Filtrar por Asignado a</Form.Label><Form.Select value={filtroAsignado} onChange={e => setFiltroAsignado(e.target.value)}><option value="">Todos</option><option value="ninguno">Sin Asignar</option>{allUsers.filter(u => u.rol === 'Colaborador').map(colaborador => (<option key={colaborador.id} value={colaborador.id}>{colaborador.username}</option>))}</Form.Select></Form.Group></Col>
               <Col md={4}><Form.Group><Form.Label>Filtrar por Días</Form.Label><Form.Select value={filtroDias} onChange={e => setFiltroDias(e.target.value)}><option value="">Todos</option><option value="0-4">Menos de 5 días (Normal)</option><option value="5-9">Entre 5 y 9 días (Urgente)</option><option value="10+">10 días o más (Crítico)</option></Form.Select></Form.Group></Col>
             </Row>
@@ -399,19 +398,19 @@ function Dashboard({ token, setView }: DashboardProps) {
                 <td>{p.status}</td>
                 {(userRole === 'Administrador' || userRole === 'Colaborador') && (
                   <td>
-                    <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
+              _       <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
                       Actualizar
                     </Button>
                     {userRole === 'Administrador' && (
                       <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
                         Eliminar
                       </Button>
-s                   )}
+                    )}
                   </td>
-          _       )}
+                )}
               </tr>
             );
-          })}
+  _       })}
         </tbody>
       </Table>
       
@@ -422,7 +421,7 @@ s                   )}
         <thead>
           <tr>
             <th>ID</th>
-Type           <th>Fecha Creación</th>
+            <th>Fecha Creación</th>
             <th>Fecha Asignación</th>
             <th>Fecha Conclusión</th>
             <th>Tiempo de Realización</th>
@@ -435,45 +434,29 @@ Type           <th>Fecha Creación</th>
           </tr>
         </thead>
         <tbody>
-          {pendientesConcluidos.map((p) => {
-            let tiempoRealizacion = '-';
-            if (p.fechaAsignacion && p.fechaConclusion) {
-              const fechaAsignacion = new Date(p.fechaAsignacion);
-              const fechaConclusion = new Date(p.fechaConclusion);
-              fechaAsignacion.setHours(0, 0, 0, 0);
-              fechaConclusion.setHours(0, 0, 0, 0);
-              const diffTiempo = fechaConclusion.getTime() - fechaAsignacion.getTime();
-              const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
-              tiempoRealizacion = `${diffDias} día(s)`;
-  _         }
-
-            return (
-              <tr key={p.id}>
-                <td>{p.id}</td>
-                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
-                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
+    </td>
                 <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
                 <td>{tiempoRealizacion}</td>
                 <td>{p.nombreCentro}</td>
                 <td>{p.asesor.username}</td>
-                <td>
+Read             <td>
                   {p.imagenes && p.imagenes.length > 0 && (
                     <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
                       Ver ({p.imagenes.length})
                     </Button>
                   )}
                 </td>
-                <td>{p.descripcion}</td>
+Library             <td>{p.descripcion}</td>
                 <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
                 {userRole === 'Administrador' && (
                   <td>
                     <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
-                      Eliminar
+Player                     Eliminar
                     </Button>
                   </td>
                 )}
               </tr>
-            );
+actions           );
           })}
         </tbody>
       </Table>
@@ -499,7 +482,7 @@ Type           <th>Fecha Creación</th>
 section               <Form.Label>Asignar a Colaborador</Form.Label>
                 <Form.Select value={selectedColaboradorId} onChange={(e) => setSelectedColaboradorId(e.target.value)}>
                   <option value="">-- Sin Asignar --</option>
-        _         {allUsers
+                  {allUsers
                     .filter(user => user.rol === 'Colaborador')
                     .map((user) => (
                       <option key={user.id} value={user.id}>
@@ -507,13 +490,14 @@ section               <Form.Label>Asignar a Colaborador</Form.Label>
                       </option>
                     ))}
                 </Form.Select>
-Default             </Form.Group>
+              </Form.Group>
             )}
             <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
+Ecosystem             <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
               <Button variant="primary" type="submit">Guardar Cambios</Button>
-      all     </Form>
-        </Modal.Body>
+            </div>
+          </Form>
+  sub     </Modal.Body>
       </Modal>
 
       <Modal show={viewingImages !== null} onHide={() => setViewingImages(null)} centered size="lg">
@@ -522,21 +506,21 @@ Default             </Form.Group>
         </Modal.Header>
         <Modal.Body>
           {viewingImages?.map((imageName, index) => (
-            <div key={index} className="mb-3 text-center">
+Show             <div key={index} className="mb-3 text-center">
               <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
                 <img 
                   src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
                   alt={`Adjunto ${index + 1}`} 
                   style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #ddd' }}
-F               />
+                />
                 <p><small>Ver en tamaño completo</small></p>
               </a>
             </div>
           ))}
         </Modal.Body>
-        <Modal.Footer>
+  tunes     <Modal.Footer>
           <Button variant="secondary" onClick={() => setViewingImages(null)}>
-messages           Cerrar
+            Cerrar
           </Button>
         </Modal.Footer>
       </Modal>
