@@ -52,7 +52,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [selectedColaboradorId, setSelectedColaboradorId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [filtroAsesor, setFiltroAsesor] = useState('');
-  const [filtroAsignado] = useState<string>('');('');
+  const [filtroAsignado] = useState<string>('');
   const [filtroDias, setFiltroDias] = useState('');
   const [viewingImages, setViewingImages] = useState<string[] | null>(null);
   
