@@ -251,3 +251,297 @@ function Dashboard({ token, setView }: DashboardProps) {
       const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
       if (diffDias >= 10) acc[colaborador.id].critico++;
       else if (diffDias >= 5) acc[colaborador.id].urgente++;
+      else acc[colaborador.id].normal++;
+      acc[colaborador.id].total++;
+      return acc;
+    }, {} as Record<string, { username: string; normal: number; urgente: number; critico: number; total: number; }>);
+
+  const performanceArray = Object.values(performanceData);
+
+  return (
+    <div>
+      {userRole === 'Administrador' && (
+        <Button variant="secondary" onClick={() => setView('admin')} className="mb-3">
+          Gestionar Usuarios
+        </Button>
+      )}
+
+      <h2>Dashboard Principal</h2>
+      <p>¡Bienvenido! Has iniciado sesión como: <strong>{userRole}</strong></p>
+      <hr />
+      
+      {/* ================================================================
+        ===== 🚀 CORRECCIÓN 2: Se eliminó la condición {userRole === 'Administrador' && ...} 🚀 =====
+        ================================================================
+        Este bloque ahora es visible para todos los roles.
+      */}
+      <>
+        <h3>Desempeño de Colaboradores</h3>
+        <Row className="mb-4">
+          {performanceArray.length > 0 ? performanceArray.map((colab: any) => (
+            <Col md={6} lg={4} key={colab.username} className="mb-3">
+              <Card>
+                <Card.Header as="h5">{colab.username}</Card.Header>
+                <Card.Body>
+                  <Card.Text>Total Asignados: <strong>{colab.total}</strong></Card.Text>
+                  <div className="d-flex justify-content-around">
+                    <Badge bg="success" className="p-2">Normal ({colab.normal})</Badge>
+                    <Badge bg="warning" className="p-2 text-dark">Urgente ({colab.urgente})</Badge>
+                    <Badge bg="danger" className="p-2">Crítico ({colab.critico})</Badge>
+                  </div>
+    _               </Card.Body>
+                </Card>
+              </Col>
+          )) : <p>No hay pendientes asignados para mostrar métricas.</p>}
+        </Row>
+        <hr />
+      </>
+      
+      {(userRole === 'Asesor' || userRole === 'Administrador') && (
+// ... (El resto de tu archivo sigue exactamente igual) ...
+        <div className="mb-4">
+          <Button variant="primary" onClick={() => setShowCreateForm(!showCreateForm)} className="mb-3">
+            {showCreateForm ? 'Cancelar Creación' : 'Crear Nuevo Pendiente'}
+          </Button>
+          {showCreateForm && (
+            <Card>
+              <Card.Body>
+                <Card.Title>Nuevo Pendiente</Card.Title>
+            _     <Form onSubmit={handleCreateSubmit}>
+                  <Form.Group className="mb-3"><Form.Label>Nombre del Centro</Form.Label><Form.Control type="text" value={newNombreCentro} onChange={(e) => setNewNombreCentro(e.target.value)} required /></Form.Group>
+                  <Form.Group className="mb-3"><Form.Label>Descripción</Form.Label><Form.Control as="textarea" rows={3} value={newDescripcion} onChange={(e) => setNewDescripcion(e.target.value)} required /></Form.Group>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Adjuntar Imágenes (Opcional)</Form.Label>
+                    <Form.Control type="file" ref={fileInputRef} multiple onChange={handleFileChange} />
+                  </Form.Group>
+                  {selectedFiles.length > 0 && (
+                    <ListGroup className="mb-3">
+                      {selectedFiles.map((file, index) => (
+                        <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
+                          {file.name}
+                          <Button variant="danger" size="sm" onClick={() => handleRemoveFile(index)}>X</Button>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  )}
+                  <Button variant="success" type="submit">Guardar Pendiente</Button>
+                </Form>
+              </Card.Body>
+            </Card>
+          )}
+        </div>
+      )}
+      
+      <h3>Lista de Pendientes Activos</h3>
+      {error && <Alert variant="danger">{error}</Alert>}
+      
+      <Card className="mb-4">
+        <Card.Body>
+          <Card.Title>Filtros</Card.Title>
+          <Form>
+            <Row>
+          _     <Col md={4}><Form.Group><Form.Label>Filtrar por Asesor</Form.Label><Form.Select value={filtroAsesor} onChange={e => setFiltroAsesor(e.target.value)}><option value="">Todos</option>{[...new Map(pendientes.map(p => [p.asesor.id, p.asesor])).values()].map(asesor => (<option key={asesor.id} value={asesor.id}>{asesor.username}</option>))}</Form.Select></Form.Group></Col>
+              <Col md={4}><Form.Group><Form.Label>Filtrar por Asignado a</Form.Label><Form.Select value={filtroAsignado} onChange={e => setFiltroAsignado(e.target.value)}><option value="">Todos</option><option value="ninguno">Sin Asignar</option>{allUsers.filter(u => u.rol === 'Colaborador').map(colaborador => (<option key={colaborador.id} value={colaborador.id}>{colaborador.username}</option>))}</Form.Select></Form.Group></Col>
+              <Col md={4}><Form.Group><Form.Label>Filtrar por Días</Form.Label><Form.Select value={filtroDias} onChange={e => setFiltroDias(e.target.value)}><option value="">Todos</option><option value="0-4">Menos de 5 días (Normal)</option><option value="5-9">Entre 5 y 9 días (Urgente)</option><option value="10+">10 días o más (Crítico)</option></Form.Select></Form.Group></Col>
+            </Row>
+          </Form>
+        </Card.Body>
+      </Card>
+      
+      <Table striped bordered hover responsive>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Fecha Creación</th>
+            <th>Días Transcurridos</th>
+            <th>Centro</th>
+            <th>Asesor</th>
+            <th>Archivos</th>
+            <th>Descripción</th>
+            <th>Asignado a</th>
+            <th>Fecha Asignación</th>
+            <th>Estado</th>
+            {(userRole === 'Administrador' || userRole === 'Colaborador') && <th>Acciones</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {pendientesActivos.map((p) => {
+            const fechaCreacion = new Date(p.fechaCreacion);
+            const hoy = new Date();
+            fechaCreacion.setHours(0, 0, 0, 0);
+            hoy.setHours(0, 0, 0, 0);
+            const diffTiempo = hoy.getTime() - fechaCreacion.getTime();
+            const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
+            let diasColor = '';
+            if (diffDias >= 10) { diasColor = '#ffcccb'; } 
+            else if (diffDias >= 5) { diasColor = '#ffebcc'; } 
+            else { diasColor = '#d4edda'; }
+
+            return (
+              <tr key={p.id}>
+                <td>{p.id}</td>
+                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
+                <td style={{ backgroundColor: diasColor, fontWeight: 'bold' }}>{diffDias}</td>
+                <td>{p.nombreCentro}</td>
+                <td>{p.asesor.username}</td>
+                <td>
+                  {p.imagenes && p.imagenes.length > 0 && (
+                    <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
+                      Ver ({p.imagenes.length})
+                    </Button>
+                  )}
+                </td>
+                <td>{p.descripcion}</td>
+                <td>
+                  {p.colaboradorAsignado ? p.colaboradorAsignado.username : <span style={{ color: '#888' }}>No asignado</span>}
+                </td>
+                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
+                <td>{p.status}</td>
+                {(userRole === 'Administrador' || userRole === 'Colaborador') && (
+                  <td>
+                    <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
+                      Actualizar
+                    </Button>
+                    {userRole === 'Administrador' && (
+                      <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
+                        Eliminar
+                      </Button>
+s                   )}
+                  </td>
+          _       )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+      
+      <hr className="my-5" />
+      <h3>Historial de Pendientes Concluidos</h3>
+      
+      <Table striped bordered hover responsive size="sm">
+        <thead>
+          <tr>
+            <th>ID</th>
+Type           <th>Fecha Creación</th>
+            <th>Fecha Asignación</th>
+            <th>Fecha Conclusión</th>
+            <th>Tiempo de Realización</th>
+            <th>Centro</th>
+            <th>Asesor</th>
+            <th>Archivos</th>
+            <th>Descripción</th>
+            <th>Asignado a</th>
+            {userRole === 'Administrador' && <th>Acciones</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {pendientesConcluidos.map((p) => {
+            let tiempoRealizacion = '-';
+            if (p.fechaAsignacion && p.fechaConclusion) {
+              const fechaAsignacion = new Date(p.fechaAsignacion);
+              const fechaConclusion = new Date(p.fechaConclusion);
+              fechaAsignacion.setHours(0, 0, 0, 0);
+              fechaConclusion.setHours(0, 0, 0, 0);
+              const diffTiempo = fechaConclusion.getTime() - fechaAsignacion.getTime();
+              const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
+              tiempoRealizacion = `${diffDias} día(s)`;
+  _         }
+
+            return (
+              <tr key={p.id}>
+                <td>{p.id}</td>
+                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
+                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
+                <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
+                <td>{tiempoRealizacion}</td>
+                <td>{p.nombreCentro}</td>
+                <td>{p.asesor.username}</td>
+                <td>
+                  {p.imagenes && p.imagenes.length > 0 && (
+                    <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
+                      Ver ({p.imagenes.length})
+                    </Button>
+                  )}
+                </td>
+                <td>{p.descripcion}</td>
+                <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
+                {userRole === 'Administrador' && (
+                  <td>
+                    <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
+                      Eliminar
+                    </Button>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </Table>
+      
+      <Modal show={editingPendiente !== null} onHide={() => setEditingPendiente(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Actualizar Pendiente #{editingPendiente?.id}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleUpdateSubmit}>
+            <Form.Group className="mb-3">
+              <Form.Label>Estado</Form.Label>
+              <Form.Select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+                <option value="Por Asignar" disabled></option>
+                <option value="Iniciado">Iniciado</option>
+                <option value="Fuera de oficina">Fuera de oficina</option>
+                <option value="En administración">En administración</option>
+                <option value="Concluido">Concluido</option>
+              </Form.Select>
+            </Form.Group>
+            {userRole === 'Administrador' && (
+              <Form.Group className="mb-3">
+section               <Form.Label>Asignar a Colaborador</Form.Label>
+                <Form.Select value={selectedColaboradorId} onChange={(e) => setSelectedColaboradorId(e.target.value)}>
+                  <option value="">-- Sin Asignar --</option>
+        _         {allUsers
+                    .filter(user => user.rol === 'Colaborador')
+                    .map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.username}
+                      </option>
+                    ))}
+                </Form.Select>
+Default             </Form.Group>
+            )}
+            <div className="d-flex justify-content-end gap-2 mt-4">
+              <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
+              <Button variant="primary" type="submit">Guardar Cambios</Button>
+      all     </Form>
+        </Modal.Body>
+      </Modal>
+
+      <Modal show={viewingImages !== null} onHide={() => setViewingImages(null)} centered size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Archivos Adjuntos</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {viewingImages?.map((imageName, index) => (
+            <div key={index} className="mb-3 text-center">
+              <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
+                <img 
+                  src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
+                  alt={`Adjunto ${index + 1}`} 
+                  style={{ maxWidth: '100%', maxHeight: '400px', border: '1px solid #ddd' }}
+F               />
+                <p><small>Ver en tamaño completo</small></p>
+              </a>
+            </div>
+          ))}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setViewingImages(null)}>
+messages           Cerrar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+}
+
+export default Dashboard;
