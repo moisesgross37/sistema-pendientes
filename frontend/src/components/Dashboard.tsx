@@ -273,7 +273,6 @@ function Dashboard({ token, setView }: DashboardProps) {
       {/* ================================================================
         ===== 🚀 CORRECCIÓN 2: Se eliminó la condición {userRole === 'Administrador' && ...} 🚀 =====
         ================================================================
-        Este bloque ahora es visible para todos los roles.
       */}
       <>
         <h3>Desempeño de Colaboradores</h3>
@@ -337,7 +336,7 @@ function Dashboard({ token, setView }: DashboardProps) {
       <Card className="mb-4">
         <Card.Body>
           <Card.Title>Filtros</Card.Title>
-          <Form>
+s         <Form>
             <Row>
               <Col md={4}><Form.Group><Form.Label>Filtrar por Asesor</Form.Label><Form.Select value={filtroAsesor} onChange={e => setFiltroAsesor(e.target.value)}><option value="">Todos</option>{[...new Map(pendientes.map(p => [p.asesor.id, p.asesor])).values()].map(asesor => (<option key={asesor.id} value={asesor.id}>{asesor.username}</option>))}</Form.Select></Form.Group></Col>
               <Col md={4}><Form.Group><Form.Label>Filtrar por Asignado a</Form.Label><Form.Select value={filtroAsignado} onChange={e => setFiltroAsignado(e.target.value)}><option value="">Todos</option><option value="ninguno">Sin Asignar</option>{allUsers.filter(u => u.rol === 'Colaborador').map(colaborador => (<option key={colaborador.id} value={colaborador.id}>{colaborador.username}</option>))}</Form.Select></Form.Group></Col>
@@ -398,7 +397,7 @@ function Dashboard({ token, setView }: DashboardProps) {
                 <td>{p.status}</td>
                 {(userRole === 'Administrador' || userRole === 'Colaborador') && (
                   <td>
-              _       <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
+                    <Button variant="outline-primary" size="sm" onClick={() => handleOpenUpdateModal(p)} className="me-2">
                       Actualizar
                     </Button>
                     {userRole === 'Administrador' && (
@@ -408,9 +407,9 @@ function Dashboard({ token, setView }: DashboardProps) {
                     )}
                   </td>
                 )}
-              </tr>
+    _         </tr>
             );
-  _       })}
+          })}
         </tbody>
       </Table>
       
@@ -422,7 +421,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           <tr>
             <th>ID</th>
             <th>Fecha Creación</th>
-            <th>Fecha Asignación</th>
+s           <th>Fecha Asignación</th>
             <th>Fecha Conclusión</th>
             <th>Tiempo de Realización</th>
             <th>Centro</th>
@@ -434,29 +433,45 @@ function Dashboard({ token, setView }: DashboardProps) {
           </tr>
         </thead>
         <tbody>
-    </td>
+          {pendientesConcluidos.map((p) => {
+s           let tiempoRealizacion = '-';
+            if (p.fechaAsignacion && p.fechaConclusion) {
+        _       const fechaAsignacion = new Date(p.fechaAsignacion);
+              const fechaConclusion = new Date(p.fechaConclusion);
+              fechaAsignacion.setHours(0, 0, 0, 0);
+              fechaConclusion.setHours(0, 0, 0, 0);
+              const diffTiempo = fechaConclusion.getTime() - fechaAsignacion.getTime();
+              const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
+              tiempoRealizacion = `${diffDias} día(s)`;
+            }
+
+            return (
+              <tr key={p.id}>
+                <td>{p.id}</td>
+                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
+                <td>{p.fechaAsignacion ? new Date(p.fechaAsignacion).toLocaleDateString() : '-'}</td>
                 <td>{p.fechaConclusion ? new Date(p.fechaConclusion).toLocaleDateString() : '-'}</td>
                 <td>{tiempoRealizacion}</td>
                 <td>{p.nombreCentro}</td>
                 <td>{p.asesor.username}</td>
-Read             <td>
+                <td>
                   {p.imagenes && p.imagenes.length > 0 && (
                     <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
                       Ver ({p.imagenes.length})
                     </Button>
                   )}
                 </td>
-Library             <td>{p.descripcion}</td>
+                <td>{p.descripcion}</td>
                 <td>{p.colaboradorAsignado ? p.colaboradorAsignado.username : 'N/A'}</td>
                 {userRole === 'Administrador' && (
                   <td>
                     <Button variant="outline-danger" size="sm" onClick={() => handleDeletePendiente(p.id)}>
-Player                     Eliminar
+                  _     Eliminar
                     </Button>
                   </td>
                 )}
               </tr>
-actions           );
+            );
           })}
         </tbody>
       </Table>
@@ -475,12 +490,12 @@ actions           );
                 <option value="Fuera de oficina">Fuera de oficina</option>
                 <option value="En administración">En administración</option>
                 <option value="Concluido">Concluido</option>
-              </Form.Select>
+Â             </Form.Select>
             </Form.Group>
-            {userRole === 'Administrador' && (
+        _   {userRole === 'Administrador' && (
               <Form.Group className="mb-3">
-section               <Form.Label>Asignar a Colaborador</Form.Label>
-                <Form.Select value={selectedColaboradorId} onChange={(e) => setSelectedColaboradorId(e.target.value)}>
+                <Form.Label>Asignar a Colaborador</Form.Label>
+s               <Form.Select value={selectedColaboradorId} onChange={(e) => setSelectedColaboradorId(e.target.value)}>
                   <option value="">-- Sin Asignar --</option>
                   {allUsers
                     .filter(user => user.rol === 'Colaborador')
@@ -493,11 +508,11 @@ section               <Form.Label>Asignar a Colaborador</Form.Label>
               </Form.Group>
             )}
             <div className="d-flex justify-content-end gap-2 mt-4">
-Ecosystem             <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
+              <Button variant="secondary" onClick={() => setEditingPendiente(null)}>Cancelar</Button>
               <Button variant="primary" type="submit">Guardar Cambios</Button>
             </div>
           </Form>
-  sub     </Modal.Body>
+        </Modal.Body>
       </Modal>
 
       <Modal show={viewingImages !== null} onHide={() => setViewingImages(null)} centered size="lg">
@@ -506,7 +521,7 @@ Ecosystem             <Button variant="secondary" onClick={() => setEditin
         </Modal.Header>
         <Modal.Body>
           {viewingImages?.map((imageName, index) => (
-Show             <div key={index} className="mb-3 text-center">
+            <div key={index} className="mb-3 text-center">
               <a href={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} target="_blank" rel="noopener noreferrer">
                 <img 
                   src={`https://sistema-pendientes.onrender.com/pendientes/uploads/${imageName}`} 
@@ -518,9 +533,9 @@ Show             <div key={index} className="mb-3 text-center">
             </div>
           ))}
         </Modal.Body>
-  tunes     <Modal.Footer>
+        <Modal.Footer>
           <Button variant="secondary" onClick={() => setViewingImages(null)}>
-            Cerrar
+a           Cerrar
           </Button>
         </Modal.Footer>
       </Modal>
