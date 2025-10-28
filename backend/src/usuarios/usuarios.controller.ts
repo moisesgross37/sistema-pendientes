@@ -35,14 +35,14 @@ export class UsuariosController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
-  findAll(@Request() req) {
-    // ... (tu código de findAll sigue igual) ...
-    if (req.user.rol !== 'Administrador') {
-      throw new ForbiddenException('Solo los administradores pueden ver la lista de usuarios.');
-    }
-    return this.usuariosService.findAll();
-  }
+  @UseGuards(JwtAuthGuard)
+  findAll(@Request() req) {
+    // 👇 CORRECCIÓN: Permitimos que Administradores Y Colaboradores vean la lista
+    if (req.user.rol !== 'Administrador' && req.user.rol !== 'Colaborador') { 
+      throw new ForbiddenException('No tienes permiso para ver la lista de usuarios.');
+    }
+    return this.usuariosService.findAll();
+  }
 
   @Patch(':id/rol')
   @UseGuards(JwtAuthGuard)
