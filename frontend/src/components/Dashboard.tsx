@@ -223,7 +223,7 @@ function Dashboard({ token, setView }: DashboardProps) {
     if (filtroAsesor && p.asesor.id !== parseInt(filtroAsesor)) return false;
     if (filtroAsignado) {
       if (filtroAsignado === 'ninguno' && p.colaboradorAsignado) return false;
-      if (filtroAsignado !== 'ninguno' && p.colaboradoAsignado?.id !== parseInt(filtroAsignado)) return false;
+      if (filtroAsignado !== 'ninguno' && p.colaboradorAsignado?.id !== parseInt(filtroAsignado)) return false;
     }
     if (filtroDias) {
       const fechaCreacion = new Date(p.fechaCreacion);
