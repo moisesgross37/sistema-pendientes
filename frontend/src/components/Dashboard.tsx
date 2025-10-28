@@ -150,7 +150,7 @@ function Dashboard({ token, setView }: DashboardProps) {
           nombreCentro: newNombreCentro,
           descripcion: newDescripcion,
           asesorId: asesorId,
-        _ imagenes: uploadedFileNames,
+        imagenes: uploadedFileNames,
         }),
       });
       if (!response.ok) throw new Error('No se pudo crear el pendiente.');
