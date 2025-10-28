@@ -391,11 +391,6 @@ return (
                     <td style={{ backgroundColor: diasColor, fontWeight: 'bold' }}>{diffDias}</td>
                 <td>{p.nombreCentro}</td>
                 <td>{p.asesor.username}</td>
-
-                    // Fin Bloque 2 - (Termina en la mitad de la tabla de Pendientes Activos)
-
-                    // Bloque 3 - (Fin de la tabla de Pendientes Activos y resto del archivo)
-
                     <td>
                   {p.imagenes && p.imagenes.length > 0 && (
                     <Button variant="info" size="sm" onClick={() => setViewingImages(p.imagenes!)}>
