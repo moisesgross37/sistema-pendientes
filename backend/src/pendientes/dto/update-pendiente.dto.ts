@@ -1,20 +1,18 @@
-import { IsEnum, IsNumber, IsOptional } from 'class-validator';
+// backend/src/pendientes/dto/update-pendiente.dto.ts
+import { IsEnum, IsNumber, IsOptional, ValidateIf } from 'class-validator'; // <--- Añadir ValidateIf
 
 export class UpdatePendienteDto {
   @IsOptional()
   @IsEnum([
-    'Por Asignar',
-    'Asignado',
-    'En Proceso',
-    'Concluido',
-    // 👇 AÑADIMOS LOS VALORES QUE FALTABAN
-    'Iniciado',
-    'Fuera de oficina',
-    'En administración' 
+    'Por Asignar', 'Asignado', 'En Proceso', 'Concluido',
+    'Iniciado', 'Fuera de oficina', 'En administración'
   ])
   status?: string;
 
+  // 👇 --- CAMBIOS AQUÍ ---
   @IsOptional()
-  @IsNumber()
-  colaboradorAsignadoId?: number;
+  @ValidateIf((_object, value) => value !== null) // Solo valida si no es null
+  @IsNumber() // Asegura que si no es null, sea un número
+  colaboradorAsignadoId?: number | null; // Permite que el tipo sea null
+  // 👆 --- FIN DE CAMBIOS ---
 }
