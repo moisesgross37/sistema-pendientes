@@ -43,35 +43,57 @@ export class PendientesService {
     return this.pendientesRepository.findOne({ where: {id}, relations: ['asesor', 'colaboradorAsignado'] });
   }
 
-  async update(id: number, updatePendienteDto: UpdatePendienteDto) {
-    const { colaboradorAsignadoId, status } = updatePendienteDto;
-    const pendiente = await this.pendientesRepository.findOneBy({ id });
-    if (!pendiente) {
-      throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
-    }
+// backend/src/pendientes/pendientes.service.ts
 
-    // Lógica para fecha de asignación
-    if (colaboradorAsignadoId && !pendiente.colaboradorAsignado) {
-      pendiente.fechaAsignacion = new Date(); // Se asigna por primera vez
-      const colaborador = await this.usuariosRepository.findOneBy({ id: colaboradorAsignadoId });
-      if (!colaborador) {
-        throw new NotFoundException(`Colaborador con ID "${colaboradorAsignadoId}" no encontrado`);
-      }
-      pendiente.colaboradorAsignado = colaborador;
-    }
+  async update(id: number, updatePendienteDto: UpdatePendienteDto) {
+    const { colaboradorAsignadoId, status } = updatePendienteDto;
+    const pendiente = await this.pendientesRepository.findOneBy({ id });
+    if (!pendiente) {
+      throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
+    }
 
-    // Lógica para fecha de conclusión
-    if (status && status === 'Concluido' && pendiente.status !== 'Concluido') {
-      pendiente.fechaConclusion = new Date(); // Se marca como concluido
-    }
-    
-    if (status) {
-      pendiente.status = status;
-    }
+    // --- 👇 INICIO DE LA LÓGICA CORREGIDA ---
+    
+    // El DTO nos puede enviar 3 valores:
+    // 1. undefined: (No se tocó el campo en el formulario)
+    // 2. null: (Se seleccionó "-- Sin Asignar --")
+    // 3. number: (Se seleccionó un colaborador)
+    
+    if (colaboradorAsignadoId === undefined) {
+      // No se incluyó el campo, no hacemos nada con el colaborador
+    } 
+    else if (colaboradorAsignadoId === null) {
+      // Caso 2: Se quiere des-asignar (poner en null)
+      pendiente.colaboradorAsignado = null;
+      pendiente.fechaAsignacion = null; // Limpiamos la fecha de asignación
+    } 
+    else {
+      // Caso 3: Se quiere asignar o re-asignar (es un número)
+      const colaborador = await this.usuariosRepository.findOneBy({ id: colaboradorAsignadoId });
+      if (!colaborador) {
+        throw new NotFoundException(`Colaborador con ID "${colaboradorAsignadoId}" no encontrado`);
+      }
+      
+      // Asigna el nuevo colaborador
+      pendiente.colaboradorAsignado = colaborador;
+      
+      // Solo actualiza la fecha si es la primera vez que se asigna
+      if (!pendiente.fechaAsignacion) {
+        pendiente.fechaAsignacion = new Date();
+      }
+    }
+    // --- 👆 FIN DE LA LÓGICA CORREGIDA ---
+    // Lógica para fecha de conclusión (esta estaba bien)
+    if (status && status === 'Concluido' && pendiente.status !== 'Concluido') {
+      pendiente.fechaConclusion = new Date(); // Se marca como concluido
+    }
+    
+    if (status) {
+      pendiente.status = status;
+    }
 
-    return this.pendientesRepository.save(pendiente);
-  }
-
+    return this.pendientesRepository.save(pendiente);
+}
   // --- NUEVA FUNCIÓN PARA ELIMINAR ---
   async remove(id: number): Promise<{ message: string }> {
     const pendiente = await this.pendientesRepository.findOneBy({ id });
