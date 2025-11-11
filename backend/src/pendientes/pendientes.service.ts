@@ -1,12 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository, FindOptionsWhere } from 'typeorm';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
 import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { Pendiente } from './entities/pendiente.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
-import * as fs from 'fs/promises'; // Importamos el módulo de archivos de Node.js
-import { join } from 'path'; // Importamos 'join' para construir rutas
+import * as fs from 'fs/promises';
+import { join } from 'path';
+import { Caso } from '../casos/entities/caso.entity';
+import { EstadosCasosService } from '../estados-casos/estados-casos.service'; // <--- 1. IMPORTAR SERVICIO
 
 @Injectable()
 export class PendientesService {
@@ -15,105 +22,152 @@ export class PendientesService {
     private pendientesRepository: Repository<Pendiente>,
     @InjectRepository(Usuario)
     private usuariosRepository: Repository<Usuario>,
+    @InjectRepository(Caso)
+    private casosRepository: Repository<Caso>,
+    private dataSource: DataSource,
+    // --- 👇 2. INYECTAR SERVICIO ---
+    private estadosCasosService: EstadosCasosService,
   ) {}
 
   async create(createPendienteDto: CreatePendienteDto): Promise<Pendiente> {
-    const { asesorId, nombreCentro, descripcion, imagenes } = createPendienteDto;
+    const { nombreCentro, asesorId, casos } = createPendienteDto;
+
     const asesor = await this.usuariosRepository.findOneBy({ id: asesorId });
     if (!asesor) {
       throw new NotFoundException(`Asesor con ID "${asesorId}" no encontrado`);
     }
-    const nuevoPendiente = this.pendientesRepository.create({
-      nombreCentro,
-      descripcion,
-      asesor: asesor,
-      imagenes: imagenes,
-    });
-    return this.pendientesRepository.save(nuevoPendiente);
+    if (!casos || casos.length === 0) {
+      throw new BadRequestException(
+        'Se debe enviar al menos un caso para crear el proyecto.',
+      );
+    }
+
+    // --- 👇 3. LÓGICA DE ESTADO NUEVA ---
+    // Buscamos el estado por defecto. Si no existe, el sistema falla
+    // (Esto es bueno, nos obliga a crear los estados por defecto primero)
+    const estadoPendiente = await this.estadosCasosService.findOneByNombre(
+      'Pendiente',
+    );
+    if (!estadoPendiente) {
+      throw new InternalServerErrorException(
+        'El estado por defecto "Pendiente" no se encuentra en la base de datos. Por favor, créelo en el panel de administración.',
+      );
+    }
+    // --- 👆 ---
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const nuevoPendiente = this.pendientesRepository.create({
+        nombreCentro,
+        asesor: asesor,
+        // (La 'descripcion' a nivel de pendiente ya no se usa aquí)
+      });
+      const pendienteGuardado = await queryRunner.manager.save(nuevoPendiente);
+
+      for (const casoDto of casos) {
+        const nuevoCaso = this.casosRepository.create({
+          descripcion: casoDto.descripcion,
+          imagenes: casoDto.imagenes,
+          pendiente: pendienteGuardado,
+          estado: estadoPendiente, // <--- 4. ASIGNAR EL OBJETO ESTADO
+        });
+        await queryRunner.manager.save(nuevoCaso);
+      }
+
+      await queryRunner.commitTransaction();
+
+      const resultado = await this.findOne(pendienteGuardado.id);
+      if (!resultado) {
+        throw new InternalServerErrorException(
+          'No se pudo encontrar el pendiente recién creado.',
+        );
+      }
+      return resultado;
+
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException(
+        'Falló la creación del proyecto: ' + err.message,
+      );
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findAll() {
     return this.pendientesRepository.find({
-      relations: ['asesor', 'colaboradorAsignado'],
+      // 'casos.estado' asegura que cargue el sub-objeto estado
+      relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'], 
       order: { id: 'ASC' },
     });
   }
 
   findOne(id: number) {
-    return this.pendientesRepository.findOne({ where: {id}, relations: ['asesor', 'colaboradorAsignado'] });
+    return this.pendientesRepository.findOne({
+      where: { id },
+      relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
+    });
   }
 
-// backend/src/pendientes/pendientes.service.ts
+  async update(id: number, updatePendienteDto: UpdatePendienteDto) {
+    // Esta función solo actualiza el 'Pendiente' (asignación y estado general),
+    // no los 'Casos', por lo que no necesita cambios mayores.
 
-  async update(id: number, updatePendienteDto: UpdatePendienteDto) {
-    const { colaboradorAsignadoId, status } = updatePendienteDto;
-    const pendiente = await this.pendientesRepository.findOneBy({ id });
-    if (!pendiente) {
-      throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
-    }
+    const { colaboradorAsignadoId, status } = updatePendienteDto;
+    const pendiente = await this.pendientesRepository.findOne({
+      where: { id },
+      relations: ['colaboradorAsignado'],
+    });
+    if (!pendiente) {
+      throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
+    }
+    if (colaboradorAsignadoId === undefined) {
+    } else if (colaboradorAsignadoId === null) {
+      pendiente.colaboradorAsignado = null;
+      pendiente.fechaAsignacion = null;
+    } else {
+      const colaborador = await this.usuariosRepository.findOneBy({
+        id: colaboradorAsignadoId,
+      });
+      if (!colaborador) {
+        throw new NotFoundException(
+          `Colaborador con ID "${colaboradorAsignadoId}" no encontrado`,
+        );
+      }
+      pendiente.colaboradorAsignado = colaborador;
+      if (!pendiente.fechaAsignacion) {
+        pendiente.fechaAsignacion = new Date();
+      }
+    }
 
-    // --- 👇 INICIO DE LA LÓGICA CORREGIDA ---
-    
-    // El DTO nos puede enviar 3 valores:
-    // 1. undefined: (No se tocó el campo en el formulario)
-    // 2. null: (Se seleccionó "-- Sin Asignar --")
-    // 3. number: (Se seleccionó un colaborador)
-    
-    if (colaboradorAsignadoId === undefined) {
-      // No se incluyó el campo, no hacemos nada con el colaborador
-    } 
-    else if (colaboradorAsignadoId === null) {
-      // Caso 2: Se quiere des-asignar (poner en null)
-      pendiente.colaboradorAsignado = null;
-      pendiente.fechaAsignacion = null; // Limpiamos la fecha de asignación
-    } 
-    else {
-      // Caso 3: Se quiere asignar o re-asignar (es un número)
-      const colaborador = await this.usuariosRepository.findOneBy({ id: colaboradorAsignadoId });
-      if (!colaborador) {
-        throw new NotFoundException(`Colaborador con ID "${colaboradorAsignadoId}" no encontrado`);
-      }
-      
-      // Asigna el nuevo colaborador
-      pendiente.colaboradorAsignado = colaborador;
-      
-      // Solo actualiza la fecha si es la primera vez que se asigna
-      if (!pendiente.fechaAsignacion) {
-        pendiente.fechaAsignacion = new Date();
-      }
-    }
-    // --- 👆 FIN DE LA LÓGICA CORREGIDA ---
-    // Lógica para fecha de conclusión (esta estaba bien)
-    if (status && status === 'Concluido' && pendiente.status !== 'Concluido') {
-      pendiente.fechaConclusion = new Date(); // Se marca como concluido
-    }
-    
-    if (status) {
-      pendiente.status = status;
-    }
+    // El 'status' (del Pendiente) sigue siendo un string, así que esto está bien.
+    if (status && status === 'Concluido' && pendiente.status !== 'Concluido') {
+      pendiente.fechaConclusion = new Date();
+    }
+    if (status) {
+      pendiente.status = status;
+    }
+    return this.pendientesRepository.save(pendiente);
+  }
 
-    return this.pendientesRepository.save(pendiente);
-}
-  // --- NUEVA FUNCIÓN PARA ELIMINAR ---
   async remove(id: number): Promise<{ message: string }> {
     const pendiente = await this.pendientesRepository.findOneBy({ id });
     if (!pendiente) {
       throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
     }
-
-    // Si hay imágenes, las borramos del disco
     if (pendiente.imagenes && pendiente.imagenes.length > 0) {
       for (const imageName of pendiente.imagenes) {
         try {
-          const imagePath = join('/opt/render/project/src/uploads', imageName);
+          const imagePath = join(process.cwd(), 'uploads', imageName);
           await fs.unlink(imagePath);
         } catch (error) {
           console.error(`No se pudo eliminar el archivo ${imageName}:`, error);
-          // Continuamos incluso si falla el borrado de un archivo
         }
       }
     }
-
     await this.pendientesRepository.remove(pendiente);
     return { message: `Pendiente con ID #${id} eliminado correctamente.` };
   }

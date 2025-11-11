@@ -5,11 +5,12 @@ import { AppService } from './app.service';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { PendientesModule } from './pendientes/pendientes.module';
 import { AuthModule } from './auth/auth.module';
+import { CasosModule } from './casos/casos.module'; // <--- 1. AÑADIR ESTA IMPORTACIÓN
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      // --- NUEVA LÓGICA INTELIGENTE ---
+      // --- Tu lógica inteligente (se mantiene igual) ---
       type: 'postgres',
       // Si estamos en producción (Render), usa la URL de la variable de entorno
       url: process.env.DATABASE_URL,
@@ -29,6 +30,7 @@ import { AuthModule } from './auth/auth.module';
     UsuariosModule,
     PendientesModule,
     AuthModule,
+    CasosModule, // <--- 2. AÑADIR EL MÓDULO AQUÍ
   ],
   controllers: [AppController],
   providers: [AppService],

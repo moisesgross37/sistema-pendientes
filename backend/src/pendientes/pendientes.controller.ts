@@ -3,93 +3,88 @@ import {
   Get,
   Post,
   Body,
-  Param,
   Patch,
-  UseGuards,
+  Param,
+  Delete,
+  UseGuards, // <-- Esta importación de 'UseGuards' se queda
   UseInterceptors,
   UploadedFiles,
   Res,
-  Delete,
-  Request,
-  ForbiddenException,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import type { Response } from 'express';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PendientesService } from './pendientes.service';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
 import { UpdatePendienteDto } from './dto/update-pendiente.dto';
+// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // <--- 1. LÍNEA COMENTADA
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import type { Response } from 'express'; // <--- 2. 'type' AÑADIDO
 
+// @UseGuards(JwtAuthGuard) // <--- 1. LÍNEA COMENTADA
 @Controller('pendientes')
 export class PendientesController {
   constructor(private readonly pendientesService: PendientesService) {}
 
+  // POST /pendientes/upload
   @Post('upload')
-  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-    FilesInterceptor('files', 5, {
+    FilesInterceptor('files', 10, {
       storage: diskStorage({
-        destination: '/opt/render/project/src/uploads',
+        destination: join(process.cwd(), 'uploads'),
         filename: (req, file, cb) => {
           const randomName = Array(32)
             .fill(null)
             .map(() => Math.round(Math.random() * 16).toString(16))
             .join('');
-          return cb(null, `${randomName}${extname(file.originalname)}`);
+          cb(null, `${randomName}${extname(file.originalname)}`);
         },
       }),
     }),
   )
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
-    const response = files.map(file => ({
+    return files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
     }));
-    return response;
   }
 
+  // GET /pendientes/uploads/:filename
   @Get('uploads/:filename')
-  seeUploadedFile(@Param('filename') filename: string, @Res() res: Response) {
-    // Esta ruta se hizo pública a través de main.ts, pero la dejamos aquí por si acaso
-    return res.sendFile(filename, { root: '/opt/render/project/src/uploads' });
+  serveFile(@Param('filename') filename: string, @Res() res: Response) {
+    res.sendFile(filename, { root: join(process.cwd(), 'uploads') });
   }
 
+  // POST /pendientes
   @Post()
-  @UseGuards(JwtAuthGuard)
   create(@Body() createPendienteDto: CreatePendienteDto) {
     return this.pendientesService.create(createPendienteDto);
   }
 
+  // GET /pendientes
   @Get()
-  @UseGuards(JwtAuthGuard)
   findAll() {
     return this.pendientesService.findAll();
   }
 
+  // GET /pendientes/:id
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) {
-    return this.pendientesService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.pendientesService.findOne(id);
   }
 
+  // PATCH /pendientes/:id
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updatePendienteDto: UpdatePendienteDto,
   ) {
-    return this.pendientesService.update(+id, updatePendienteDto);
+    return this.pendientesService.update(id, updatePendienteDto);
   }
 
+  // DELETE /pendientes/:id
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string, @Request() req) {
-    // Solo un administrador puede eliminar
-    if (req.user.rol !== 'Administrador') {
-      throw new ForbiddenException('Solo los administradores pueden eliminar pendientes.');
-    }
-    return this.pendientesService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.pendientesService.remove(id);
   }
 }

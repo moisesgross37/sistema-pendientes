@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
 
+// --- Constante de la URL de la API (para desarrollo local) ---
+const API_URL = import.meta.env.VITE_API_URL;
+
 interface LoginProps {
   onLoginSuccess: (token: string) => void;
 }
 
 function Login({ onLoginSuccess }: LoginProps) {
-  // Campos inicializados VACÍOS
-  const [username, setUsername] = useState(''); 
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -16,7 +18,9 @@ function Login({ onLoginSuccess }: LoginProps) {
     setError('');
 
     try {
-      const response = await fetch('https://sistema-pendientes.onrender.com/auth/login', {
+      // --- 👇 AQUÍ ESTÁ EL CAMBIO ---
+      const response = await fetch(`${API_URL}/auth/login`, {
+      // --- 👆 ---
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -33,12 +37,12 @@ function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <Form onSubmit={handleSubmit}>
-      <h2 className="mb-4">Login</h2> {/* Mantuvimos el h2 aquí por la estructura, el h2 del App es el principal */}
+      <h2 className="mb-4">Login</h2>
       <Form.Group className="mb-3" controlId="formUsername">
         <Form.Label>Nombre de Usuario</Form.Label>
         <Form.Control
           type="text"
-          placeholder="Escribe tu usuario" // Placeholder más claro
+          placeholder="Escribe tu usuario"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
@@ -48,7 +52,7 @@ function Login({ onLoginSuccess }: LoginProps) {
         <Form.Label>Contraseña</Form.Label>
         <Form.Control
           type="password"
-          placeholder="Escribe tu contraseña" // Placeholder más claro
+          placeholder="Escribe tu contraseña"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
