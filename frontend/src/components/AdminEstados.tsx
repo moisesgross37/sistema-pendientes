@@ -395,8 +395,7 @@ const handleUpdateEstado = async (e: React.FormEvent) => {
 <Modal 
   show={deletingEstado !== null} 
   onHide={() => setDeletingEstado(null)} 
-  centered 
-  size="md"
+  centered
 >
   <Modal.Header closeButton>
     <Modal.Title>Confirmar Eliminación</Modal.Title>

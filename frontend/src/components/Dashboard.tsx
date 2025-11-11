@@ -1617,7 +1617,7 @@ const handleDeletePendiente = async () => {
 {/* ================================================================ */}
 {/* ===== 🚀 NUEVO MODAL DE CONFIRMACIÓN DE BORRADO 🚀 ===== */}
 {/* ================================================================ */}
-<Modal show={deletingPendiente !== null} onHide={() => setDeletingPendiente(null)} centered size="md">
+<Modal show={deletingPendiente !== null} onHide={() => setDeletingPendiente(null)} centered>
   <Modal.Header closeButton>
     <Modal.Title>Confirmar Eliminación</Modal.Title>
   </Modal.Header>

@@ -418,7 +418,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
       {/* ================================================================ */}
       {/* ===== 🚀 MODAL DE CONFIRMACIÓN DE BORRADO DE USUARIO 🚀 ===== */}
       {/* ================================================================ */}
-      <Modal show={deletingUsuario !== null} onHide={() => setDeletingUsuario(null)} centered size="md">
+      <Modal show={deletingUsuario !== null} onHide={() => setDeletingUsuario(null)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
@@ -463,8 +463,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
           setNewResetPassword(''); // Resetea la clave al cerrar
           setError(''); // Limpia errores
         }} 
-        centered 
-        size="md"
+        centered
       >
         <Form onSubmit={handleResetPassword}>
           <Modal.Header closeButton>
