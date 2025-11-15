@@ -97,6 +97,7 @@ export class PendientesService {
     }
   }
 
+  // ESTA FUNCIÓN AHORA ES SOLO PARA ADMINS
   async findAll() {
     return this.pendientesRepository.find({
       // 'casos.estado' asegura que cargue el sub-objeto estado
@@ -104,7 +105,38 @@ export class PendientesService {
       order: { id: 'ASC' },
     });
   }
+// --- PEGA Y REEMPLAZA ESTAS DOS FUNCIONES ---
 
+  /**
+   * Busca proyectos para un Asesor específico (el creador).
+   */
+  async findForAsesor(userId: number): Promise<Pendiente[]> {
+    // La línea de 'console.log' ha sido eliminada.
+    return this.pendientesRepository.find({
+      where: {
+        asesor: { id: userId }, // Filtra por el ID del asesor
+      },
+      relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
+      order: { id: 'ASC' },
+    });
+  }
+
+  /**
+   * Busca proyectos para un Colaborador específico (el asignado).
+   */
+  async findForColaborador(userId: number): Promise<Pendiente[]> {
+    // La línea de 'console.log' ha sido eliminada.
+    return this.pendientesRepository.find({
+      where: {
+        colaboradorAsignado: { id: userId }, // Filtra por el ID del colaborador
+      },
+      relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
+      order: { id: 'ASC' },
+    });
+  }
+
+  // --- FIN DEL BLOQUE A REEMPLAZAR ---
+// ...
   findOne(id: number) {
     return this.pendientesRepository.findOne({
       where: { id },
