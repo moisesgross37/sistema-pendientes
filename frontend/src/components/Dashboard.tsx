@@ -822,9 +822,11 @@ const handleDeletePendiente = async () => {
             <th>Asignado a</th>
             <th>Fecha Asignación</th>
             <th>Estado</th>
-            {(userRole === 'Administrador' || userRole === 'Colaborador') && (
+            {/* --- 👇 LÍNEA MODIFICADA --- */}
+            {userRole === 'Administrador' && (
               <th>Acciones</th>
             )}
+            {/* --- 👆 --- */}
           </tr>
         </thead>
         {/* --- 👇 REEMPLAZA ESTE BLOQUE 'tbody' COMPLETO --- */}
@@ -894,9 +896,7 @@ const handleDeletePendiente = async () => {
                   </Badge>
                 </td>
                 {/* --- 👆 --- */}
-
-                {(userRole === 'Administrador' ||
-                  userRole === 'Colaborador') && (
+{userRole === 'Administrador' && (
                   <td>
                     <Button
                       variant="outline-primary"
