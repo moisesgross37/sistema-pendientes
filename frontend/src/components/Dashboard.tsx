@@ -129,13 +129,39 @@ function Dashboard({ token, setView }: DashboardProps) {
   // ================================================================
   
   // (Sin cambios aquí)
-  const fetchPendientes = async () => {
+  const fetchPendientes = async (role: string) => {
+    let endpointUrl = '';
+
+    // 1. Decidimos la URL de la API basándonos en el rol
+    switch (role) {
+      case 'Administrador':
+        endpointUrl = `${API_URL}/pendientes`;
+        break;
+      case 'Asesor':
+        // Esta ruta la crearemos en el backend
+        endpointUrl = `${API_URL}/pendientes/mis-proyectos`;
+        break;
+      case 'Colaborador':
+         // Esta ruta también la crearemos en el backend
+        endpointUrl = `${API_URL}/pendientes/mis-asignaciones`;
+        break;
+      default:
+        // Si el rol no es ninguno de esos, mostramos un error.
+        console.warn('Rol de usuario no reconocido:', role);
+        setError('No tienes permisos para ver esta información.');
+        return; // No continuamos
+    }
+
+    // 2. El resto de la función es igual, pero usa la 'endpointUrl'
     try {
-      const response = await fetch(`${API_URL}/pendientes`, {
+      const response = await fetch(endpointUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error('No se pudo obtener la lista de proyectos.');
+      if (!response.ok) {
+         // (Mejora: intentar leer el mensaje de error de la API)
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.message || 'No se pudo obtener la lista de proyectos.');
+      }
       const data = await response.json();
       setPendientes(data);
     } catch (err: any) {
@@ -194,10 +220,10 @@ const fetchEstadosCaso = async () => {
   try {
     const decodedToken: DecodedToken = jwtDecode(token);
     setUserRole(decodedToken.rol);
-    fetchPendientes();
+    fetchPendientes(decodedToken.rol);
     fetchEstadosCaso(); // <--- ¡AQUÍ ESTÁ LA LÍNEA AÑADIDA!
 
-    if (decodedToken.rol === 'Administrador' || decodedToken.rol === 'Colaborador') {
+    if (decodedToken.rol === 'Administrador') {
       fetchUsers();
     }
   } catch (error) {
@@ -348,7 +374,7 @@ const fetchEstadosCaso = async () => {
 
       setSuccess('¡Proyecto y casos creados con éxito!');
       handleCloseCreateModal(); // Cierra y resetea el formulario
-      fetchPendientes(); // Recarga la lista
+      if (userRole) fetchPendientes(userRole);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -446,7 +472,7 @@ const handleUpdateCaso = async (casoIndex: number) => {
     setSuccess(`¡Caso #${casoId} actualizado con éxito!`);
 
     // Recargamos la lista de proyectos para mostrar el cambio
-    fetchPendientes(); 
+    if (userRole) fetchPendientes(userRole);
 
   } catch (err: any) {
     setError(err.message);
@@ -491,7 +517,7 @@ const handleMarkAsConcluido = async () => {
     setEditableCasos([]);
 
     // Recargamos la lista (el proyecto se moverá a la tabla de 'Concluidos')
-    fetchPendientes(); 
+    if (userRole) fetchPendientes(userRole);
 
   } catch (err: any) {
     setError(err.message);
@@ -606,7 +632,7 @@ const getResumenEstadoProyecto = (
       if (!res.ok) throw new Error('Falló la actualización.');
       setEditingPendiente(null);
       setSuccess('Proyecto actualizado.');
-      fetchPendientes();
+      if (userRole) fetchPendientes(userRole);
     } catch (err: any) {
       setError(err.message);
     }
@@ -639,7 +665,7 @@ const handleDeletePendiente = async () => {
     }
 
     setSuccess(`Proyecto #${id} eliminado con éxito.`);
-    fetchPendientes(); // Recargamos la lista
+    if (userRole) fetchPendientes(userRole);
 
   } catch (err: any) {
     // Si la API falla (ej: error 409 por dependencias), 
@@ -937,50 +963,50 @@ const handleDeletePendiente = async () => {
           {success}
         </Alert>
       )}
+<hr /> {/* Separador */}
 
-{/* --- 👇 REEMPLAZA ESTE BLOQUE COMPLETO --- */}
-
-  <hr /> {/* Separador */}
-
-  {/* Desempeño de Colaboradores (Ahora en una Tarjeta) */}
-  <Card className="mb-4 shadow-sm">
-    <Card.Body>
-      <Card.Title as="h3">Desempeño de Colaboradores</Card.Title>
-      <Row className="mt-3">
-        {performanceArray.length > 0 ? (
-          performanceArray.map((colab: any) => (
-            <Col md={6} lg={4} key={colab.username} className="mb-3">
-              {/* (Tu tarjeta 'colab' individual ya estaba bien) */}
-              <Card> 
-                <Card.Header as="h5">{colab.username}</Card.Header>
-                <Card.Body>
-                  <Card.Text>
-                    Total Asignados: <strong>{colab.total}</strong>
-                  </Card.Text>
-                  <div className="d-flex justify-content-around">
-                    <Badge bg="success" className="p-2">
-                      Normal ({colab.normal})
-                    </Badge>
-                    <Badge bg="warning" className="p-2 text-dark">
-                      Urgente ({colab.urgente})
-                    </Badge>
-                    <Badge bg="danger" className="p-2">
-                      Crítico ({colab.critico})
-                    </Badge>
-                  </div>
-                </Card.Body>
-              </Card>
+  {/* --- 👇 INICIO DE LA CORRECCIÓN --- */}
+  {/* Desempeño de Colaboradores (Ahora condicional) */}
+  {(userRole === 'Administrador' || userRole === 'Colaborador') && (
+    <Card className="mb-4 shadow-sm">
+      <Card.Body>
+        <Card.Title as="h3">Desempeño de Colaboradores</Card.Title>
+        <Row className="mt-3">
+          {performanceArray.length > 0 ? (
+            performanceArray.map((colab: any) => (
+              <Col md={6} lg={4} key={colab.username} className="mb-3">
+                {/* (Tu tarjeta 'colab' individual ya estaba bien) */}
+                <Card>
+                  <Card.Header as="h5">{colab.username}</Card.Header>
+                  <Card.Body>
+                    <Card.Text>
+                      Total Asignados: <strong>{colab.total}</strong>
+                    </Card.Text>
+                    <div className="d-flex justify-content-around">
+                      <Badge bg="success" className="p-2">
+                        Normal ({colab.normal})
+                      </Badge>
+                      <Badge bg="warning" className="p-2 text-dark">
+                        Urgente ({colab.urgente})
+                      </Badge>
+                      <Badge bg="danger" className="p-2">
+                        Crítico ({colab.critico})
+                      </Badge>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))
+          ) : (
+            <Col>
+              <p>No hay pendientes asignados para mostrar métricas.</p>
             </Col>
-          ))
-        ) : (
-          <Col>
-            <p>No hay pendientes asignados para mostrar métricas.</p>
-          </Col>
-        )}
-      </Row>
-    </Card.Body>
-  </Card>
-  {/* --- 👆 --- */}
+          )}
+        </Row>
+      </Card.Body>
+    </Card>
+  )}
+  {/* --- 👆 FIN DE LA CORRECCIÓN --- */}
       {/* ================================================================ */}
       {/* ===== 🚀 MODAL DE CREACIÓN DE PROYECTO (ACTUALIZADO) 🚀 ===== */}
       {/* ================================================================ */}
@@ -1159,7 +1185,7 @@ const handleDeletePendiente = async () => {
 </Modal>
 
       {/* ================================================================ */}
-      {/* ===== 🚀 PESTAÑAS Y TABLAS (Sin cambios) 🚀 ===== */}
+      {/* ===== 🚀 PESTAÑAS Y TABLAS (CORREGIDO) 🚀 ===== */}
       {/* ================================================================ */}
 
       {/* --- 👇 INICIO DEL CAMBIO (Paso 26.2.1) --- */}
@@ -1168,154 +1194,102 @@ const handleDeletePendiente = async () => {
 <Card className="mb-4 shadow-sm">
   <Card.Body>
     <Card.Title as="h3">Lista de Proyectos Activos</Card.Title>
+    
+    {/* --- INICIO DE LA CORRECCIÓN DEFINITIVA V3 --- */}
+    {/* Envolvemos toda la lógica en una función que se ejecuta sola: {(() => { ... })()}
+      Esto nos permite usar 'const', 'if' y 'map' de forma segura DENTRO del JSX.
+    */}
+    {(() => {
+      
+      // 1. Construimos el array de pestañas del admin
+      const adminTabs: React.ReactNode[] = [];
+      
+      if (userRole === 'Administrador') {
+        
+        // Pestaña "Sin Asignar"
+        adminTabs.push(
+          <Tab
+            key="sin-asignar"
+            eventKey="sin-asignar"
+            title={
+              <>
+                Sin Asignar (
+                {pendientesActivos.filter((p) => !p.colaboradorAsignado).length})
+              </>
+            }
+          >
+            {renderPendientesTable(
+              pendientesActivos.filter((p) => !p.colaboradorAsignado),
+            )}
+          </Tab>
+        );
 
-    {/* (Aquí abajo debe estar tu etiqueta <Tabs>...) */}
-{/* --- 👆 --- */}
-
-      <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
-        {/* Pestaña "Todos" */}
-        <Tab
-          eventKey="todos"
-          title={
-            <>
-              <strong>Todos</strong> ({pendientesActivos.length})
-            </>
-          }
-        >
-          {renderPendientesTable(pendientesActivos, true)}
-        </Tab>
-
-        {/* Pestaña "Sin Asignar" */}
-        <Tab
-          eventKey="sin-asignar"
-          title={
-            <>
-              Sin Asignar (
-              {pendientesActivos.filter((p) => !p.colaboradorAsignado).length})
-            </>
-          }
-        >
-          {renderPendientesTable(
-            pendientesActivos.filter((p) => !p.colaboradorAsignado),
-          )}
-        </Tab>
-
-        {/* Pestañas dinámicas para cada Colaborador */}
-        {colaboradores.map((colab) => {
+        // Pestañas dinámicas para cada Colaborador
+        colaboradores.map((colab) => {
           const pendientesDelColab = pendientesActivos.filter(
             (p) => p.colaboradorAsignado?.id === colab.id,
           );
-          return (
+          adminTabs.push(
             <Tab
+              key={colab.id}
               eventKey={colab.id.toString()}
               title={
                 <>
                   {colab.username} ({pendientesDelColab.length})
                 </>
               }
-              key={colab.id}
             >
               {renderPendientesTable(pendientesDelColab)}
             </Tab>
           );
-        })}
-      </Tabs>
-      </Card.Body>
-  </Card>
+        });
+      }
 
-      <hr className="my-5" />
+      // 2. Ahora retornamos el componente <Tabs> completo
+      return (
+        <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
+          
+          {/* Pestaña "Todos" (Esta ya estaba bien) */}
+          <Tab
+            eventKey="todos"
+            title={
+              <>
+                <strong>
+                  {userRole === 'Administrador' ? 'Todos' : 'Mis Proyectos'}
+                </strong> ({pendientesActivos.length})
+              </>
+            }
+          >
+            {renderPendientesTable(
+              pendientesActivos,
+              userRole === 'Administrador',
+            )}
+          </Tab>
 
-      {/* ================================================================ */}
-      {/* ===== 🚀 HISTORIAL CONCLUIDOS Y MODALES (Sin cambios) 🚀 ===== */}
-      {/* ================================================================ */}
+          {/* Aquí simplemente renderizamos el array que construimos */}
+          {/* React pondrá las pestañas aquí (si hay) o no pondrá nada */}
+          {adminTabs}
+          
+        </Tabs>
+      );
+    })()}
+    {/* --- FIN DE LA CORRECCIÓN DEFINITIVA V3 --- */}
 
-      <Card className="mb-4 shadow-sm">
+  </Card.Body>
+</Card>
+{/* ================================================================ */}
+{/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
+{/* ================================================================ */}
+<Card className="mb-4 shadow-sm">
   <Card.Body>
     <Card.Title as="h3">Historial de Proyectos Concluidos</Card.Title>
-
-      <Table striped bordered hover responsive size="sm">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Fecha Creación</th>
-            <th>Fecha Asignación</th>
-            <th>Fecha Conclusión</th>
-            <th>Tiempo de Realización</th>
-            <th>Centro (Proyecto)</th>
-            <th>Asesor</th>
-            <th>Casos</th>
-            <th>Asignado a</th>
-            {userRole === 'Administrador' && <th>Acciones</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {pendientesConcluidos.map((p) => {
-            let tiempoRealizacion = '-';
-            if (p.fechaAsignacion && p.fechaConclusion) {
-              const fechaAsignacion = new Date(p.fechaAsignacion);
-              const fechaConclusion = new Date(p.fechaConclusion);
-              const diffTiempo =
-                fechaConclusion.getTime() - fechaAsignacion.getTime();
-              const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
-              tiempoRealizacion = `${diffDias} día(s)`;
-            }
-
-            return (
-              <tr key={p.id}>
-                <td>{p.id}</td>
-                <td>{new Date(p.fechaCreacion).toLocaleDateString()}</td>
-                <td>
-                  {p.fechaAsignacion
-                    ? new Date(p.fechaAsignacion).toLocaleDateString()
-                    : '-'}
-                </td>
-                <td>
-                  {p.fechaConclusion
-                    ? new Date(p.fechaConclusion).toLocaleDateString()
-                    : '-'}
-                </td>
-                <td>{tiempoRealizacion}</td>
-                <td>{p.nombreCentro}</td>
-                <td>{p.asesor.username}</td>
-                <td>
-                  {/* Botón "Ver (X)" que abre el modal de detalles */}
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => {
-                      setViewingProyecto(p);
-                      setEditableCasos(JSON.parse(JSON.stringify(p.casos)));
-                    }}
-                  >
-                    Ver ({p.casos.length})
-                  </Button>
-                </td>
-                <td>
-                  {p.colaboradorAsignado
-                    ? p.colaboradorAsignado.username
-                    : 'N/A'}
-                </td>
-                {userRole === 'Administrador' && (
-                <td>
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    // --- 👇 CAMBIO AQUÍ ---
-                    onClick={() => setDeletingPendiente(p)}
-                    // --- 👆 ---
-                  >
-                    Eliminar
-                  </Button>
-                </td>
-              )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </Table>
-      </Card.Body>
+    {/* Aquí re-usamos tu función 'renderPendientesTable'
+        pero le pasamos la lista 'pendientesConcluidos'
+        (que ya se calcula en la línea 782)
+    */}
+    {renderPendientesTable(pendientesConcluidos, false)}
+  </Card.Body>
 </Card>
-
       {/* Modal de Actualización (Asignar Colaborador) */}
       <Modal
         show={editingPendiente !== null}
