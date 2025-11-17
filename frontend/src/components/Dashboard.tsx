@@ -861,6 +861,7 @@ const handleDeletePendiente = async () => {
                     variant="outline-secondary"
                     size="sm"
                     onClick={() => {
+                      setError('');
                       setViewingProyecto(p);
                       // Hacemos la copia profunda para el modal
                       setEditableCasos(JSON.parse(JSON.stringify(p.casos)).map((c: Caso) => ({ ...c, error: null })));
