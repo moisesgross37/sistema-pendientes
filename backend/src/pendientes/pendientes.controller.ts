@@ -33,7 +33,7 @@ export class PendientesController {
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       storage: diskStorage({
-        destination: join(process.cwd(), 'uploads'),
+        destination: '/opt/render/project/src/uploads',
         filename: (req, file, cb) => {
           const randomName = Array(32)
             .fill(null)
@@ -54,7 +54,7 @@ export class PendientesController {
   // (Esta ruta se queda pública para que se puedan ver las imágenes)
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    res.sendFile(filename, { root: join(process.cwd(), 'uploads') });
+    res.sendFile(filename, { root: '/opt/render/project/src/uploads' });
   }
 
   // POST /pendientes
