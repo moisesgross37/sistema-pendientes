@@ -22,7 +22,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import type { Request, Response } from 'express';
-
+// Forzando actualización de ruta
 @Controller('pendientes')
 export class PendientesController {
   constructor(private readonly pendientesService: PendientesService) {}
