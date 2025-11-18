@@ -13,7 +13,7 @@ import {
   Req,
   ParseIntPipe,
   ForbiddenException,
-  Logger, // <--- AÑADIDO PARA LOGS PROFESIONALES
+  Logger,
 } from '@nestjs/common';
 import { PendientesService } from './pendientes.service';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
@@ -23,14 +23,13 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import type { Request, Response } from 'express';
-import * as fs from 'fs'; // <--- IMPORTANTE PARA DIAGNÓSTICO
+import * as fs from 'fs';
 
 @Controller('pendientes')
 export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    // ESTE LOG CONFIRMARÁ QUE EL NUEVO CÓDIGO SE ESTÁ EJECUTANDO
     this.logger.log('🚀 PENDIENTES CONTROLLER V2.1 (DEBUG MODE) INICIADO 🚀');
   }
 
@@ -60,7 +59,8 @@ export class PendientesController {
                cb(null, rutaObjetivo);
              } catch (error) {
                console.error(`[DEBUG] 💀 ERROR FATAL creando carpeta:`, error);
-               cb(error, null);
+               // CORRECCIÓN AQUÍ: Pasamos '' en lugar de null para satisfacer a TypeScript
+               cb(error as Error, '');
              }
           }
         },
@@ -75,13 +75,15 @@ export class PendientesController {
     }),
   )
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
-    this.logger.log(`Archivos procesados: ${files.length}`);
-    files.forEach(f => this.logger.log(`Guardado en: ${f.path}`));
+    this.logger.log(`Archivos procesados: ${files ? files.length : 0}`);
+    if(files) {
+        files.forEach(f => this.logger.log(`Guardado en: ${f.path}`));
+    }
     
-    return files.map((file) => ({
+    return files ? files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
-    }));
+    })) : [];
   }
 
   // GET /pendientes/uploads/:filename
@@ -92,7 +94,7 @@ export class PendientesController {
     res.sendFile(filename, { root: ruta });
   }
 
-  // --- RESTO DE MÉTODOS (Sin cambios, solo copia y pega el resto) ---
+  // --- RESTO DE MÉTODOS ---
   
   @UseGuards(JwtAuthGuard)
   @Post()
