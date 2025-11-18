@@ -12,7 +12,8 @@ import {
   Res,
   Req,
   ParseIntPipe,
-  ForbiddenException, // <--- 1. AÑADIDO (Necesario para la seguridad)
+  ForbiddenException,
+  Logger, // <--- AÑADIDO PARA LOGS PROFESIONALES
 } from '@nestjs/common';
 import { PendientesService } from './pendientes.service';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
@@ -20,22 +21,49 @@ import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname } from 'path';
 import type { Request, Response } from 'express';
-// Forzando actualización de ruta
+import * as fs from 'fs'; // <--- IMPORTANTE PARA DIAGNÓSTICO
+
 @Controller('pendientes')
 export class PendientesController {
-  constructor(private readonly pendientesService: PendientesService) {}
+  private readonly logger = new Logger(PendientesController.name);
+
+  constructor(private readonly pendientesService: PendientesService) {
+    // ESTE LOG CONFIRMARÁ QUE EL NUEVO CÓDIGO SE ESTÁ EJECUTANDO
+    this.logger.log('🚀 PENDIENTES CONTROLLER V2.1 (DEBUG MODE) INICIADO 🚀');
+  }
 
   // POST /pendientes/upload
-  // Guarda las imágenes en el Disco Persistente de Render
   @UseGuards(JwtAuthGuard)
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 10, {
       storage: diskStorage({
-        // 👇 RUTA CORRECTA según tu configuración de Render
-        destination: '/opt/render/project/src/uploads',
+        destination: (req, file, cb) => {
+          const rutaObjetivo = '/opt/render/project/src/uploads';
+          
+          // DIAGNÓSTICO EN TIEMPO REAL
+          console.log(`[DEBUG] ------------------------------------------------`);
+          console.log(`[DEBUG] Multer intentando guardar: ${file.originalname}`);
+          console.log(`[DEBUG] Ruta configurada: ${rutaObjetivo}`);
+
+          // Verificar si la carpeta existe FÍSICAMENTE
+          if (fs.existsSync(rutaObjetivo)) {
+             console.log(`[DEBUG] ✅ La carpeta EXISTE. Permisos OK.`);
+             cb(null, rutaObjetivo);
+          } else {
+             console.error(`[DEBUG] ❌ La carpeta NO EXISTE. Intentando crearla...`);
+             try {
+               fs.mkdirSync(rutaObjetivo, { recursive: true });
+               console.log(`[DEBUG] ✅ Carpeta creada exitosamente.`);
+               cb(null, rutaObjetivo);
+             } catch (error) {
+               console.error(`[DEBUG] 💀 ERROR FATAL creando carpeta:`, error);
+               cb(error, null);
+             }
+          }
+        },
         filename: (req, file, cb) => {
           const randomName = Array(32)
             .fill(null)
@@ -47,6 +75,9 @@ export class PendientesController {
     }),
   )
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
+    this.logger.log(`Archivos procesados: ${files.length}`);
+    files.forEach(f => this.logger.log(`Guardado en: ${f.path}`));
+    
     return files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
@@ -54,55 +85,47 @@ export class PendientesController {
   }
 
   // GET /pendientes/uploads/:filename
-  // Sirve las imágenes desde el Disco Persistente
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    // 👇 RUTA CORRECTA para leer del disco
-    res.sendFile(filename, { root: '/opt/render/project/src/uploads' });
+    const ruta = '/opt/render/project/src/uploads';
+    this.logger.log(`[LEER] Intentando servir: ${filename} desde ${ruta}`);
+    res.sendFile(filename, { root: ruta });
   }
 
-  // POST /pendientes
+  // --- RESTO DE MÉTODOS (Sin cambios, solo copia y pega el resto) ---
+  
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPendienteDto: CreatePendienteDto) {
     return this.pendientesService.create(createPendienteDto);
   }
 
-  // GET /pendientes (SOLO PARA ADMINS)
   @UseGuards(JwtAuthGuard)
   @Get()
   findAll() {
     return this.pendientesService.findAll();
   }
 
-  // --- NUEVAS RUTAS DE ROLES ---
-
-  // GET /pendientes/mis-proyectos (PARA ASESORES)
   @UseGuards(JwtAuthGuard)
   @Get('mis-proyectos')
   findMisProyectos(@Req() req: Request) {
-    const userId = (req.user as any).id; // Corregido: usa .id
+    const userId = (req.user as any).id;
     return this.pendientesService.findForAsesor(userId);
   }
 
-  // GET /pendientes/mis-asignaciones (PARA COLABORADORES)
   @UseGuards(JwtAuthGuard)
   @Get('mis-asignaciones')
   findMisAsignaciones(@Req() req: Request) {
-    const userId = (req.user as any).id; // Corregido: usa .id
+    const userId = (req.user as any).id;
     return this.pendientesService.findForColaborador(userId);
   }
 
-  // --- FIN NUEVAS RUTAS ---
-
-  // GET /pendientes/:id
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.pendientesService.findOne(id);
   }
 
-  // PATCH /pendientes/:id
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(
@@ -112,23 +135,18 @@ export class PendientesController {
     return this.pendientesService.update(id, updatePendienteDto);
   }
 
-  // DELETE /pendientes/:id
-  // 🛡️ AHORA SEGURO: Solo el Administrador puede borrar
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(
     @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request, // Inyectamos Request para ver quién es el usuario
+    @Req() req: Request,
   ) {
     const user = req.user as any;
-    
-    // Validación de seguridad
     if (user.rol !== 'Administrador') {
       throw new ForbiddenException(
         'Acción no permitida. Solo los administradores pueden eliminar proyectos.',
       );
     }
-
     return this.pendientesService.remove(id);
   }
 }
