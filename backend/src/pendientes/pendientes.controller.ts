@@ -25,18 +25,21 @@ import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
-// --- CONFIGURACIÓN INTELIGENTE DE RUTAS ---
-// Si estamos en Render (existe la variable RENDER), usamos el disco persistente.
-// Si estamos en local, usamos una carpeta './uploads' en tu proyecto.
-const IS_RENDER = process.env.RENDER === 'true';
-const UPLOAD_PATH = IS_RENDER 
-  ? '/opt/render/project/src/uploads'  // Ruta del Disco en Render
-  : join(process.cwd(), 'uploads');    // Ruta Local en tu PC
+// --- CONFIGURACIÓN A PRUEBA DE BALAS V3 ---
+// Definimos la ruta exacta del disco de Render
+const RENDER_DISK_PATH = '/opt/render/project/src/uploads';
 
-// Aseguramos que la carpeta exista al iniciar (para evitar errores de "no such file")
-if (!fs.existsSync(UPLOAD_PATH)) {
+// Preguntamos al sistema: ¿Existe esta carpeta física?
+const IS_RENDER_DISK_AVAILABLE = fs.existsSync(RENDER_DISK_PATH);
+
+// Si existe la carpeta de Render, úsala. Si no, usa la carpeta local del proyecto.
+const UPLOAD_PATH = IS_RENDER_DISK_AVAILABLE 
+  ? RENDER_DISK_PATH 
+  : join(process.cwd(), 'uploads');
+
+// Nos aseguramos de que la carpeta local exista si estamos trabajando en la PC
+if (!IS_RENDER_DISK_AVAILABLE && !fs.existsSync(UPLOAD_PATH)) {
   fs.mkdirSync(UPLOAD_PATH, { recursive: true });
-  console.log(`[INIT] Carpeta de uploads creada en: ${UPLOAD_PATH}`);
 }
 
 @Controller('pendientes')
@@ -44,8 +47,9 @@ export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log(`🚀 PENDIENTES CONTROLLER ACTIVO`);
-    this.logger.log(`📂 Guardando archivos en: ${UPLOAD_PATH}`);
+    this.logger.log(`🚀 PENDIENTES CONTROLLER V3 (AUTO-DETECT)`);
+    this.logger.log(`💾 MODO DETECTADO: ${IS_RENDER_DISK_AVAILABLE ? 'PRODUCCIÓN (Render Disk)' : 'LOCAL (PC)'}`);
+    this.logger.log(`📂 Ruta de guardado activa: ${UPLOAD_PATH}`);
   }
 
   // POST /pendientes/upload
@@ -55,7 +59,7 @@ export class PendientesController {
     FilesInterceptor('files', 10, {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          // Usamos la constante global UPLOAD_PATH
+          // Usamos la ruta calculada automáticamente
           cb(null, UPLOAD_PATH);
         },
         filename: (req, file, cb) => {
@@ -69,39 +73,40 @@ export class PendientesController {
     }),
   )
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
-    // Construir la URL base dinámicamente (http://tusitio.com/pendientes/uploads/...)
+    // Construir la URL completa para que el Frontend no tenga que adivinar
     const protocol = req.protocol;
     const host = req.get('host');
+    // Esta URL apunta a este mismo controlador
     const baseUrl = `${protocol}://${host}/pendientes/uploads`;
 
-    this.logger.log(`Archivos procesados: ${files ? files.length : 0} en ruta ${UPLOAD_PATH}`);
+    this.logger.log(`Subida exitosa. Archivos: ${files ? files.length : 0}`);
     
     return files ? files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
-      // AQUÍ LA MAGIA: Devolvemos la ruta completa para que el frontend no falle
+      // Devolvemos la URL lista para usar en el navegador
       url: `${baseUrl}/${file.filename}` 
     })) : [];
   }
 
   // GET /pendientes/uploads/:filename
-  // Este endpoint sirve la imagen desde el disco persistente
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    this.logger.log(`[LEER] Solicitud de archivo: ${filename}`);
-    
-    // Verificamos si existe antes de enviarlo para evitar crasheos
     const fullPath = join(UPLOAD_PATH, filename);
     
     if (fs.existsSync(fullPath)) {
+        // Servimos el archivo desde la ruta calculada (sea Render o Local)
         res.sendFile(filename, { root: UPLOAD_PATH });
     } else {
-        this.logger.error(`[ERROR] Archivo no encontrado físicamente: ${fullPath}`);
-        res.status(404).json({ message: 'Imagen no encontrada o eliminada' });
+        this.logger.error(`[404] Archivo no encontrado: ${fullPath}`);
+        res.status(404).json({ 
+            message: 'Imagen no encontrada o eliminada',
+            path: fullPath 
+        });
     }
   }
 
-  // --- RESTO DE MÉTODOS (Sin cambios) ---
+  // --- MÉTODOS ESTÁNDAR (Sin cambios) ---
   
   @UseGuards(JwtAuthGuard)
   @Post()
