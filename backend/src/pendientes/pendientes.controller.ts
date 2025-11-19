@@ -21,16 +21,31 @@ import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
+
+// --- CONFIGURACIÓN INTELIGENTE DE RUTAS ---
+// Si estamos en Render (existe la variable RENDER), usamos el disco persistente.
+// Si estamos en local, usamos una carpeta './uploads' en tu proyecto.
+const IS_RENDER = process.env.RENDER === 'true';
+const UPLOAD_PATH = IS_RENDER 
+  ? '/opt/render/project/src/uploads'  // Ruta del Disco en Render
+  : join(process.cwd(), 'uploads');    // Ruta Local en tu PC
+
+// Aseguramos que la carpeta exista al iniciar (para evitar errores de "no such file")
+if (!fs.existsSync(UPLOAD_PATH)) {
+  fs.mkdirSync(UPLOAD_PATH, { recursive: true });
+  console.log(`[INIT] Carpeta de uploads creada en: ${UPLOAD_PATH}`);
+}
 
 @Controller('pendientes')
 export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log('🚀 PENDIENTES CONTROLLER V2.1 (DEBUG MODE) INICIADO 🚀');
+    this.logger.log(`🚀 PENDIENTES CONTROLLER ACTIVO`);
+    this.logger.log(`📂 Guardando archivos en: ${UPLOAD_PATH}`);
   }
 
   // POST /pendientes/upload
@@ -40,29 +55,8 @@ export class PendientesController {
     FilesInterceptor('files', 10, {
       storage: diskStorage({
         destination: (req, file, cb) => {
-          const rutaObjetivo = '/opt/render/project/src/uploads';
-          
-          // DIAGNÓSTICO EN TIEMPO REAL
-          console.log(`[DEBUG] ------------------------------------------------`);
-          console.log(`[DEBUG] Multer intentando guardar: ${file.originalname}`);
-          console.log(`[DEBUG] Ruta configurada: ${rutaObjetivo}`);
-
-          // Verificar si la carpeta existe FÍSICAMENTE
-          if (fs.existsSync(rutaObjetivo)) {
-             console.log(`[DEBUG] ✅ La carpeta EXISTE. Permisos OK.`);
-             cb(null, rutaObjetivo);
-          } else {
-             console.error(`[DEBUG] ❌ La carpeta NO EXISTE. Intentando crearla...`);
-             try {
-               fs.mkdirSync(rutaObjetivo, { recursive: true });
-               console.log(`[DEBUG] ✅ Carpeta creada exitosamente.`);
-               cb(null, rutaObjetivo);
-             } catch (error) {
-               console.error(`[DEBUG] 💀 ERROR FATAL creando carpeta:`, error);
-               // CORRECCIÓN AQUÍ: Pasamos '' en lugar de null para satisfacer a TypeScript
-               cb(error as Error, '');
-             }
-          }
+          // Usamos la constante global UPLOAD_PATH
+          cb(null, UPLOAD_PATH);
         },
         filename: (req, file, cb) => {
           const randomName = Array(32)
@@ -74,27 +68,40 @@ export class PendientesController {
       }),
     }),
   )
-  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>) {
-    this.logger.log(`Archivos procesados: ${files ? files.length : 0}`);
-    if(files) {
-        files.forEach(f => this.logger.log(`Guardado en: ${f.path}`));
-    }
+  uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
+    // Construir la URL base dinámicamente (http://tusitio.com/pendientes/uploads/...)
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}/pendientes/uploads`;
+
+    this.logger.log(`Archivos procesados: ${files ? files.length : 0} en ruta ${UPLOAD_PATH}`);
     
     return files ? files.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
+      // AQUÍ LA MAGIA: Devolvemos la ruta completa para que el frontend no falle
+      url: `${baseUrl}/${file.filename}` 
     })) : [];
   }
 
   // GET /pendientes/uploads/:filename
+  // Este endpoint sirve la imagen desde el disco persistente
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    const ruta = '/opt/render/project/src/uploads';
-    this.logger.log(`[LEER] Intentando servir: ${filename} desde ${ruta}`);
-    res.sendFile(filename, { root: ruta });
+    this.logger.log(`[LEER] Solicitud de archivo: ${filename}`);
+    
+    // Verificamos si existe antes de enviarlo para evitar crasheos
+    const fullPath = join(UPLOAD_PATH, filename);
+    
+    if (fs.existsSync(fullPath)) {
+        res.sendFile(filename, { root: UPLOAD_PATH });
+    } else {
+        this.logger.error(`[ERROR] Archivo no encontrado físicamente: ${fullPath}`);
+        res.status(404).json({ message: 'Imagen no encontrada o eliminada' });
+    }
   }
 
-  // --- RESTO DE MÉTODOS ---
+  // --- RESTO DE MÉTODOS (Sin cambios) ---
   
   @UseGuards(JwtAuthGuard)
   @Post()
