@@ -14,100 +14,118 @@ import {
   ParseIntPipe,
   ForbiddenException,
   Logger,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PendientesService } from './pendientes.service';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
 import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
-// --- CONFIGURACIÓN A PRUEBA DE BALAS V3 ---
-// Definimos la ruta exacta del disco de Render
+// RUTA DEL DISCO PERSISTENTE
 const RENDER_DISK_PATH = '/opt/render/project/src/uploads';
-
-// Preguntamos al sistema: ¿Existe esta carpeta física?
-const IS_RENDER_DISK_AVAILABLE = fs.existsSync(RENDER_DISK_PATH);
-
-// Si existe la carpeta de Render, úsala. Si no, usa la carpeta local del proyecto.
-const UPLOAD_PATH = IS_RENDER_DISK_AVAILABLE 
-  ? RENDER_DISK_PATH 
-  : join(process.cwd(), 'uploads');
-
-// Nos aseguramos de que la carpeta local exista si estamos trabajando en la PC
-if (!IS_RENDER_DISK_AVAILABLE && !fs.existsSync(UPLOAD_PATH)) {
-  fs.mkdirSync(UPLOAD_PATH, { recursive: true });
-}
+const LOCAL_PATH = join(process.cwd(), 'uploads');
+// Si existe la carpeta de Render, la usamos. Si no, local.
+const UPLOAD_PATH = fs.existsSync(RENDER_DISK_PATH) ? RENDER_DISK_PATH : LOCAL_PATH;
 
 @Controller('pendientes')
 export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log(`🚀 PENDIENTES CONTROLLER V3 (AUTO-DETECT)`);
-    this.logger.log(`💾 MODO DETECTADO: ${IS_RENDER_DISK_AVAILABLE ? 'PRODUCCIÓN (Render Disk)' : 'LOCAL (PC)'}`);
-    this.logger.log(`📂 Ruta de guardado activa: ${UPLOAD_PATH}`);
+    this.logger.log(`🔧 MODO MANUAL ACTIVADO`);
+    this.logger.log(`📂 Objetivo de guardado: ${UPLOAD_PATH}`);
   }
 
   // POST /pendientes/upload
   @UseGuards(JwtAuthGuard)
   @Post('upload')
-  @UseInterceptors(
-    FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          // Usamos la ruta calculada automáticamente
-          cb(null, UPLOAD_PATH);
-        },
-        filename: (req, file, cb) => {
-          const randomName = Array(32)
-            .fill(null)
-            .map(() => Math.round(Math.random() * 16).toString(16))
-            .join('');
-          cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  // IMPORTANTE: Quitamos 'diskStorage' para manejar el archivo en memoria (buffer) nosotros mismos
+  @UseInterceptors(FilesInterceptor('files', 10)) 
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
-    // Construir la URL completa para que el Frontend no tenga que adivinar
-    const protocol = req.protocol;
-    const host = req.get('host');
-    // Esta URL apunta a este mismo controlador
-    const baseUrl = `${protocol}://${host}/pendientes/uploads`;
-
-    this.logger.log(`Subida exitosa. Archivos: ${files ? files.length : 0}`);
     
-    return files ? files.map((file) => ({
-      originalName: file.originalname,
-      fileName: file.filename,
-      // Devolvemos la URL lista para usar en el navegador
-      url: `${baseUrl}/${file.filename}` 
-    })) : [];
+    if (!files || files.length === 0) {
+        throw new HttpException('No se enviaron archivos', HttpStatus.BAD_REQUEST);
+    }
+
+    const uploadedFilesInfo = [];
+
+    this.logger.log(`📥 Recibidos ${files.length} archivos para guardar manualmente...`);
+
+    try {
+        // Asegurar que la carpeta exista
+        if (!fs.existsSync(UPLOAD_PATH)) {
+            this.logger.warn(`⚠️ La carpeta no existía. Creándola: ${UPLOAD_PATH}`);
+            fs.mkdirSync(UPLOAD_PATH, { recursive: true });
+        }
+
+        files.forEach((file) => {
+            // 1. Generar nombre único
+            const randomName = Array(32)
+                .fill(null)
+                .map(() => Math.round(Math.random() * 16).toString(16))
+                .join('');
+            const filename = `${randomName}${extname(file.originalname)}`;
+            
+            // 2. Definir ruta completa
+            const fullPath = join(UPLOAD_PATH, filename);
+
+            // 3. ESCRIBIR EL ARCHIVO MANUALMENTE (Aquí es donde forzamos el guardado)
+            this.logger.log(`✍️ Escribiendo archivo en: ${fullPath}`);
+            fs.writeFileSync(fullPath, file.buffer); // <-- ESTO ES LO CLAVE
+
+            // 4. VERIFICACIÓN INMEDIATA (El "Chivato")
+            if (fs.existsSync(fullPath)) {
+                const stats = fs.statSync(fullPath);
+                this.logger.log(`✅ CONFIRMADO: Archivo guardado. Tamaño: ${stats.size} bytes`);
+            } else {
+                this.logger.error(`❌ ERROR CRÍTICO: El archivo se escribió pero no aparece.`);
+            }
+
+            // Construir URL para el frontend
+            const protocol = req.protocol;
+            const host = req.get('host');
+            const baseUrl = `${protocol}://${host}/pendientes/uploads`;
+
+            uploadedFilesInfo.push({
+                originalName: file.originalname,
+                fileName: filename,
+                url: `${baseUrl}/${filename}`
+            });
+        });
+
+        // Auditoría final de la carpeta
+        const folderContent = fs.readdirSync(UPLOAD_PATH);
+        this.logger.log(`📊 Archivos actuales en carpeta (${folderContent.length}): ${folderContent.slice(-3)}...`);
+
+        return uploadedFilesInfo;
+
+    } catch (error) {
+        this.logger.error(`☠️ ERROR FATAL AL GUARDAR: ${error.message}`, error.stack);
+        throw new HttpException('Error interno guardando archivos', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // GET /pendientes/uploads/:filename
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
     const fullPath = join(UPLOAD_PATH, filename);
+    // this.logger.log(`🔍 Buscando archivo: ${fullPath}`); // Descomentar si quieres mucho spam
     
     if (fs.existsSync(fullPath)) {
-        // Servimos el archivo desde la ruta calculada (sea Render o Local)
         res.sendFile(filename, { root: UPLOAD_PATH });
     } else {
         this.logger.error(`[404] Archivo no encontrado: ${fullPath}`);
-        res.status(404).json({ 
-            message: 'Imagen no encontrada o eliminada',
-            path: fullPath 
-        });
+        res.status(404).json({ message: 'Imagen no encontrada' });
     }
   }
 
-  // --- MÉTODOS ESTÁNDAR (Sin cambios) ---
-  
+  // --- RESTO DE MÉTODOS (No cambian) ---
+
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPendienteDto: CreatePendienteDto) {
