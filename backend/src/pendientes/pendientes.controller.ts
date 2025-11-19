@@ -26,12 +26,12 @@ import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
-// RUTA DEL DISCO PERSISTENTE
-// Nota: Render monta los discos en rutas absolutas
-const RENDER_DISK_PATH = '/opt/render/project/src/uploads';
+// --- CAMBIO IMPORTANTE ---
+// Esta es la dirección del NUEVO disco que acabas de crear
+const RENDER_DISK_PATH = '/var/data'; 
 const LOCAL_PATH = join(process.cwd(), 'uploads');
 
-// Lógica de selección de ruta
+// Lógica de selección
 const UPLOAD_PATH = fs.existsSync(RENDER_DISK_PATH) ? RENDER_DISK_PATH : LOCAL_PATH;
 
 @Controller('pendientes')
