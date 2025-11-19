@@ -27,9 +27,11 @@ import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
 // RUTA DEL DISCO PERSISTENTE
+// Nota: Render monta los discos en rutas absolutas
 const RENDER_DISK_PATH = '/opt/render/project/src/uploads';
 const LOCAL_PATH = join(process.cwd(), 'uploads');
-// Si existe la carpeta de Render, la usamos. Si no, local.
+
+// Lógica de selección de ruta
 const UPLOAD_PATH = fs.existsSync(RENDER_DISK_PATH) ? RENDER_DISK_PATH : LOCAL_PATH;
 
 @Controller('pendientes')
@@ -37,14 +39,14 @@ export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log(`🔧 MODO MANUAL ACTIVADO`);
+    this.logger.log(`🔧 MODO MANUAL ACTIVADO (V4 - TYPED)`);
     this.logger.log(`📂 Objetivo de guardado: ${UPLOAD_PATH}`);
   }
 
   // POST /pendientes/upload
   @UseGuards(JwtAuthGuard)
   @Post('upload')
-  // IMPORTANTE: Quitamos 'diskStorage' para manejar el archivo en memoria (buffer) nosotros mismos
+  // Usamos memoria temporal (sin diskStorage) para tener el buffer
   @UseInterceptors(FilesInterceptor('files', 10)) 
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
     
@@ -52,7 +54,9 @@ export class PendientesController {
         throw new HttpException('No se enviaron archivos', HttpStatus.BAD_REQUEST);
     }
 
-    const uploadedFilesInfo = [];
+    // CORRECCIÓN AQUÍ: Definimos que es un array de cualquier cosa (any[])
+    // Esto soluciona el error "parameter of type never"
+    const uploadedFilesInfo: any[] = [];
 
     this.logger.log(`📥 Recibidos ${files.length} archivos para guardar manualmente...`);
 
@@ -74,11 +78,11 @@ export class PendientesController {
             // 2. Definir ruta completa
             const fullPath = join(UPLOAD_PATH, filename);
 
-            // 3. ESCRIBIR EL ARCHIVO MANUALMENTE (Aquí es donde forzamos el guardado)
+            // 3. ESCRIBIR EL ARCHIVO MANUALMENTE
             this.logger.log(`✍️ Escribiendo archivo en: ${fullPath}`);
-            fs.writeFileSync(fullPath, file.buffer); // <-- ESTO ES LO CLAVE
+            fs.writeFileSync(fullPath, file.buffer); 
 
-            // 4. VERIFICACIÓN INMEDIATA (El "Chivato")
+            // 4. VERIFICACIÓN INMEDIATA
             if (fs.existsSync(fullPath)) {
                 const stats = fs.statSync(fullPath);
                 this.logger.log(`✅ CONFIRMADO: Archivo guardado. Tamaño: ${stats.size} bytes`);
@@ -114,7 +118,6 @@ export class PendientesController {
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
     const fullPath = join(UPLOAD_PATH, filename);
-    // this.logger.log(`🔍 Buscando archivo: ${fullPath}`); // Descomentar si quieres mucho spam
     
     if (fs.existsSync(fullPath)) {
         res.sendFile(filename, { root: UPLOAD_PATH });
@@ -124,7 +127,7 @@ export class PendientesController {
     }
   }
 
-  // --- RESTO DE MÉTODOS (No cambian) ---
+  // --- RESTO DE MÉTODOS ---
 
   @UseGuards(JwtAuthGuard)
   @Post()
