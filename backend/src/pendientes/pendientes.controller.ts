@@ -26,27 +26,37 @@ import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
-// --- CAMBIO IMPORTANTE ---
-// Esta es la dirección del NUEVO disco que acabas de crear
-const RENDER_DISK_PATH = '/var/data'; 
-const LOCAL_PATH = join(process.cwd(), 'uploads');
-
-// Lógica de selección
-const UPLOAD_PATH = fs.existsSync(RENDER_DISK_PATH) ? RENDER_DISK_PATH : LOCAL_PATH;
+// -------------------------------------------------------
+// 🛑 CONSTANTE FIJA: SIN AUTO-DETECTAR
+// OBLIGAMOS a usar el disco persistente de Render
+const UPLOAD_PATH = '/var/data'; 
+// -------------------------------------------------------
 
 @Controller('pendientes')
 export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log(`🔧 MODO MANUAL ACTIVADO (V4 - TYPED)`);
-    this.logger.log(`📂 Objetivo de guardado: ${UPLOAD_PATH}`);
+    this.logger.log(`🚧 MODO FUERZA BRUTA ACTIVADO`);
+    this.logger.log(`🎯 Destino OBLIGATORIO: ${UPLOAD_PATH}`);
+    
+    // Verificación inicial al arrancar
+    try {
+        if (fs.existsSync(UPLOAD_PATH)) {
+            this.logger.log('✅ La carpeta /var/data existe y es accesible.');
+            // Prueba de escritura al inicio
+            fs.writeFileSync(`${UPLOAD_PATH}/test_inicio.txt`, 'Hola desde el arranque');
+        } else {
+            this.logger.error('❌ ¡ALERTA! /var/data NO existe. El disco no está montado.');
+        }
+    } catch (e) {
+        this.logger.error(`❌ Error verificando disco: ${e.message}`);
+    }
   }
 
   // POST /pendientes/upload
   @UseGuards(JwtAuthGuard)
   @Post('upload')
-  // Usamos memoria temporal (sin diskStorage) para tener el buffer
   @UseInterceptors(FilesInterceptor('files', 10)) 
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
     
@@ -54,43 +64,36 @@ export class PendientesController {
         throw new HttpException('No se enviaron archivos', HttpStatus.BAD_REQUEST);
     }
 
-    // CORRECCIÓN AQUÍ: Definimos que es un array de cualquier cosa (any[])
-    // Esto soluciona el error "parameter of type never"
     const uploadedFilesInfo: any[] = [];
-
-    this.logger.log(`📥 Recibidos ${files.length} archivos para guardar manualmente...`);
+    this.logger.log(`📥 Intentando guardar ${files.length} archivos en ${UPLOAD_PATH}...`);
 
     try {
-        // Asegurar que la carpeta exista
+        // Si la carpeta no existe, intentamos crearla (aunque debería ser el disco)
         if (!fs.existsSync(UPLOAD_PATH)) {
-            this.logger.warn(`⚠️ La carpeta no existía. Creándola: ${UPLOAD_PATH}`);
             fs.mkdirSync(UPLOAD_PATH, { recursive: true });
         }
 
         files.forEach((file) => {
-            // 1. Generar nombre único
+            // Validar que tenemos datos
+            if (!file.buffer) {
+                this.logger.error(`❌ El archivo ${file.originalname} llegó sin contenido (buffer vacío).`);
+                return;
+            }
+
             const randomName = Array(32)
                 .fill(null)
                 .map(() => Math.round(Math.random() * 16).toString(16))
                 .join('');
             const filename = `${randomName}${extname(file.originalname)}`;
-            
-            // 2. Definir ruta completa
             const fullPath = join(UPLOAD_PATH, filename);
 
-            // 3. ESCRIBIR EL ARCHIVO MANUALMENTE
-            this.logger.log(`✍️ Escribiendo archivo en: ${fullPath}`);
+            // ESCRIBIR (Sync para asegurar)
             fs.writeFileSync(fullPath, file.buffer); 
 
-            // 4. VERIFICACIÓN INMEDIATA
-            if (fs.existsSync(fullPath)) {
-                const stats = fs.statSync(fullPath);
-                this.logger.log(`✅ CONFIRMADO: Archivo guardado. Tamaño: ${stats.size} bytes`);
-            } else {
-                this.logger.error(`❌ ERROR CRÍTICO: El archivo se escribió pero no aparece.`);
-            }
+            // CHIVATO: Verificar si se escribió
+            const stats = fs.statSync(fullPath);
+            this.logger.log(`💾 GUARDADO OK: ${filename} (${stats.size} bytes)`);
 
-            // Construir URL para el frontend
             const protocol = req.protocol;
             const host = req.get('host');
             const baseUrl = `${protocol}://${host}/pendientes/uploads`;
@@ -102,15 +105,15 @@ export class PendientesController {
             });
         });
 
-        // Auditoría final de la carpeta
-        const folderContent = fs.readdirSync(UPLOAD_PATH);
-        this.logger.log(`📊 Archivos actuales en carpeta (${folderContent.length}): ${folderContent.slice(-3)}...`);
+        // AUDITORÍA: Listar qué hay en la carpeta ahora mismo
+        const directoryContents = fs.readdirSync(UPLOAD_PATH);
+        this.logger.log(`📂 CONTENIDO ACTUAL DE /var/data: [${directoryContents.join(', ')}]`);
 
         return uploadedFilesInfo;
 
     } catch (error) {
-        this.logger.error(`☠️ ERROR FATAL AL GUARDAR: ${error.message}`, error.stack);
-        throw new HttpException('Error interno guardando archivos', HttpStatus.INTERNAL_SERVER_ERROR);
+        this.logger.error(`☠️ ERROR CRÍTICO: ${error.message}`, error.stack);
+        throw new HttpException('Error guardando archivos', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -122,13 +125,12 @@ export class PendientesController {
     if (fs.existsSync(fullPath)) {
         res.sendFile(filename, { root: UPLOAD_PATH });
     } else {
-        this.logger.error(`[404] Archivo no encontrado: ${fullPath}`);
+        this.logger.warn(`🔍 404 - Se buscó: ${fullPath} y no estaba.`);
         res.status(404).json({ message: 'Imagen no encontrada' });
     }
   }
 
   // --- RESTO DE MÉTODOS ---
-
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPendienteDto: CreatePendienteDto) {
@@ -163,24 +165,16 @@ export class PendientesController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updatePendienteDto: UpdatePendienteDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() updatePendienteDto: UpdatePendienteDto) {
     return this.pendientesService.update(id, updatePendienteDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(
-    @Param('id', ParseIntPipe) id: number,
-    @Req() req: Request,
-  ) {
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     const user = req.user as any;
     if (user.rol !== 'Administrador') {
-      throw new ForbiddenException(
-        'Acción no permitida. Solo los administradores pueden eliminar proyectos.',
-      );
+      throw new ForbiddenException('Acción no permitida.');
     }
     return this.pendientesService.remove(id);
   }
