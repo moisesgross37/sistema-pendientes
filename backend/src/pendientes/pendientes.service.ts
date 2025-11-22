@@ -56,13 +56,15 @@ export class PendientesService {
       );
     }
 
-    // --- 🧠 LÓGICA DE AUTO-ASIGNACIÓN (CORREGIDA CON TIPOS) 🧠 ---
+    // --- 🧠 LÓGICA DE AUTO-ASIGNACIÓN (CORREGIDA) 🧠 ---
     
-    // Aquí estaba el error: le decimos explícitamente qué tipos permitimos
     let colaboradorAutoAsignado: Usuario | null = null; 
-    let statusInicial = 'Pendiente';
-    let fechaAsignacionInicial: Date | null = null;
     
+    // 👇 AQUÍ ESTÁ EL CAMBIO: Usamos 'Por Asignar' que sí es válido en la BD
+    let statusInicial = 'Por Asignar'; 
+    // 👆 -----------------------------------------------------------
+
+    let fechaAsignacionInicial: Date | null = null;
     let targetUsername = '';
 
     // 1. Definimos reglas
@@ -83,7 +85,7 @@ export class PendientesService {
       if (colaboradorAutoAsignado) {
          console.log(`✅ Auto-asignando proyecto de ${area} a ${targetUsername}`);
          statusInicial = 'Iniciado'; 
-         fechaAsignacionInicial = new Date(); // Ahora sí permite guardar fecha
+         fechaAsignacionInicial = new Date(); 
       } else {
          console.warn(`⚠️ Advertencia: Se intentó asignar a '${targetUsername}' pero no existe.`);
       }
@@ -99,9 +101,9 @@ export class PendientesService {
         nombreCentro,
         asesor: asesor,
         area: area, 
-        colaboradorAsignado: colaboradorAutoAsignado, // TypeORM acepta null o Usuario
+        colaboradorAsignado: colaboradorAutoAsignado, 
         status: statusInicial,
-        fechaAsignacion: fechaAsignacionInicial // TypeORM acepta null o Date
+        fechaAsignacion: fechaAsignacionInicial
       });
       
       const pendienteGuardado = await queryRunner.manager.save(nuevoPendiente);
