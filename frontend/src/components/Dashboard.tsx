@@ -118,7 +118,6 @@ function Dashboard({ token, setView }: DashboardProps) {
   // 4. Estados del Modal de Actualización
   const [editingPendiente, setEditingPendiente] = useState<Pendiente | null>(null);
   const [selectedColaboradorId, setSelectedColaboradorId] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
 
   // 5. Estados de Filtros y Usuarios
   const [allUsers, setAllUsers] = useState<Usuario[]>([]);
@@ -400,37 +399,6 @@ const fetchEstadosCaso = async () => {
   // ================================================================
 
   // (Esta es la lógica que ya habíamos construido)
-
-  const handleCasoInputChange = (
-  index: number,
-  field: 'estado' | 'comentario', // <--- 1. Cambiamos 'status' por 'estado'
-  value: string, // El 'value' del dropdown (un ID) o del textarea (texto)
-) => {
-  const updatedCasos = editableCasos.map((caso, i) => {
-    if (i === index) {
-
-      // --- 👇 2. LÓGICA NUEVA ---
-      if (field === 'comentario') {
-        // Si solo cambia el comentario, es fácil
-        return { ...caso, comentario: value };
-      } 
-
-      if (field === 'estado') {
-        // Si cambia el estado, 'value' es el ID (ej: "2")
-        // Debemos buscar el objeto EstadoCaso completo
-        const nuevoEstado = estadosCaso.find(e => e.id === parseInt(value));
-
-        if (nuevoEstado) {
-          // Asignamos el objeto completo
-          return { ...caso, estado: nuevoEstado };
-        }
-      }
-      // --- 👆 ---
-    }
-    return caso;
-  });
-  setEditableCasos(updatedCasos);
-};
 
   // --- FUNCIÓN ACTUALIZADA PARA SUBIR FOTOS Y TEXTO ---
   const handleUpdateCaso = async (casoId: number) => {
@@ -801,7 +769,6 @@ const handleDeletePendiente = async () => {
         }
       >,
     );
-  const performanceArray = Object.values(performanceData);
 
   // ================================================================
   // ===== 🚀 FUNCIÓN DE RENDERIZADO DE TABLA (ACTUALIZADA) 🚀 =====
