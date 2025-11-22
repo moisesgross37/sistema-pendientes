@@ -35,6 +35,8 @@ interface Caso {
   imagenes: string[];
   fechaCreacion: Date;
   comentario: string | null;
+  archivoUrl?: string;
+  pendiente?: any;
 }
 
 // Interfaz actualizada del Pendiente (ahora un "Proyecto")
