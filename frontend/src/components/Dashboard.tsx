@@ -82,48 +82,58 @@ interface NewCasoState {
 
 // --- Componente ---
 function Dashboard({ token, setView }: DashboardProps) {
+  // 1. Estados Generales
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(''); // Estado para mensajes de éxito
+  const [success, setSuccess] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // <--- 3. ESTADO NUEVO
+  const [isLoading, setIsLoading] = useState(false);
+// 1. Para capturar el cambio de estado
+  const [nuevoEstadoCaso, setNuevoEstadoCaso] = useState<Record<number, number>>({});
+  
+  // 2. Para capturar el texto de respuesta del colaborador
+  const [comentarioEdicion, setComentarioEdicion] = useState<Record<number, string>>({});
+  
+  // 3. NUEVO: Para capturar la foto que suban (antes de enviarla)
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState<Record<number, File | null>>({});
+  // 2. 🏆 RELOJ DEL TORNEO (Aquí está la clave, una sola vez)
+  const [rankingStartDate, setRankingStartDate] = useState<string>(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  );
+  const [rankingEndDate, setRankingEndDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
-  // --- Estados para el Modal de Creación (Rehechos) ---
+  // 3. Estados del Modal de Creación
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newNombreCentro, setNewNombreCentro] = useState('');
-
-  // --- 4. ESTADO 'newCasos' ACTUALIZADO ---
-  // Usa la nueva interfaz
+  const [nuevoArea, setNuevoArea] = useState('');
   const [newCasos, setNewCasos] = useState<NewCasoState[]>([
     { descripcion: '', files: [] },
   ]);
-  // Ref para el input de archivos
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Estados para el Modal de Actualización (Sin cambios) ---
-  const [editingPendiente, setEditingPendiente] = useState<Pendiente | null>(
-    null,
-  );
-  const [selectedColaboradorId, setSelectedColaboradorId] =
-    useState<string>('');
+  // 4. Estados del Modal de Actualización
+  const [editingPendiente, setEditingPendiente] = useState<Pendiente | null>(null);
+  const [selectedColaboradorId, setSelectedColaboradorId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
 
-  // --- Estados de Filtros y Vistas (Sin cambios) ---
+  // 5. Estados de Filtros y Usuarios
   const [allUsers, setAllUsers] = useState<Usuario[]>([]);
   const [colaboradores, setColaboradores] = useState<Usuario[]>([]);
   const [filtroAsesor, setFiltroAsesor] = useState('');
-  const [filtroAsignado] = useState<string>('');
+  const [filtroAsignado] = useState<string>(''); // Mantenemos esto como lo tenías
   const [filtroDias, setFiltroDias] = useState('');
 
-  // (viewingImages se usará de otra forma, a nivel de Caso)
+  // 6. Estados de Visualización (Detalles e Imágenes)
   const [viewingImages, setViewingImages] = useState<string[] | null>(null);
-
-  // --- Estados del Modal de Detalles (los que ya hicimos) ---
   const [viewingProyecto, setViewingProyecto] = useState<Pendiente | null>(null);
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
   const [estadosCaso, setEstadosCaso] = useState<EstadoCaso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
 
+  // AQUÍ ABAJO DEBEN EMPEZAR TUS FUNCIONES (fetchPendientes, etc.)
+  // AQUÍ ABAJO DEBEN EMPEZAR TUS FUNCIONES (fetchPendientes, etc.)
   // ================================================================
   // ===== 🚀 FUNCIONES DE API (fetchPendientes, fetchUsers) 🚀 =====
   // ================================================================
@@ -168,8 +178,6 @@ function Dashboard({ token, setView }: DashboardProps) {
       setError(err.message);
     }
   };
-// --- 👇 AÑADE ESTA NUEVA FUNCIÓN AQUÍ ---
-
 // Esta función carga la lista de estados (Pendiente, Detenido, etc.)
 const fetchEstadosCaso = async () => {
   try {
@@ -288,19 +296,20 @@ const fetchEstadosCaso = async () => {
     setShowCreateForm(false);
     setNewNombreCentro('');
     setNewCasos([{ descripcion: '', files: [] }]);
+    setNuevoArea('');
     setError('');
     setSuccess('');
     setIsLoading(false);
   };
 
-  // --- 7. FUNCIÓN DE ENVÍO (Submit) - Totalmente reescrita ---
+  // --- 7. FUNCIÓN DE ENVÍO (Submit) - CON SOPORTE PARA ÁREAS ---
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setIsLoading(true); // <-- Activa el Spinner
+    setIsLoading(true);
 
-    // Validación
+    // Validación básica
     if (newCasos.some((caso) => caso.descripcion.trim() === '')) {
       setError('Todos los casos deben tener una descripción.');
       setIsLoading(false);
@@ -308,20 +317,19 @@ const fetchEstadosCaso = async () => {
     }
 
     try {
-      // Este array guardará los datos finales que enviaremos a la API de 'pendientes'
+      // Array para los datos finales de los casos
       const casosParaEnviar: { descripcion: string; imagenes: string[] }[] = [];
 
-      // --- PASO A: Subir todos los archivos primero, caso por caso ---
+      // --- PASO A: Subir archivos ---
       for (const caso of newCasos) {
         let nombresDeArchivosSubidos: string[] = [];
 
         if (caso.files.length > 0) {
           const formData = new FormData();
           caso.files.forEach((file) => {
-            formData.append('files', file); // 'files' debe coincidir con el FilesInterceptor
+            formData.append('files', file);
           });
 
-          // Llamamos a la nueva API de 'casos' para subir los archivos
           const uploadRes = await fetch(`${API_URL}/casos/upload`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
@@ -334,17 +342,15 @@ const fetchEstadosCaso = async () => {
               uploadData.message || 'Falló la subida de uno o más archivos.',
             );
           }
-
-          // Guardamos los nombres que nos devolvió el backend
+          
           nombresDeArchivosSubidos = uploadData.map(
             (file: any) => file.fileName,
           );
         }
 
-        // Añadimos el caso (con su descripción y sus nombres de archivo) al array final
         casosParaEnviar.push({
           descripcion: caso.descripcion,
-          imagenes: nombresDeArchivosSubidos, // Array de nombres o array vacío
+          imagenes: nombresDeArchivosSubidos,
         });
       }
 
@@ -354,8 +360,11 @@ const fetchEstadosCaso = async () => {
 
       const body = {
         nombreCentro: newNombreCentro,
+        // 👇 AQUÍ ESTÁ EL CAMBIO IMPORTANTE 👇
+        area: nuevoArea, // Enviamos el área seleccionada (si está vacía, envía "")
+        // 👆 ------------------------------- 👆
         asesorId: asesorId,
-        casos: casosParaEnviar, // <-- Enviamos el array que construimos
+        casos: casosParaEnviar,
       };
 
       const response = await fetch(`${API_URL}/pendientes`, {
@@ -373,15 +382,17 @@ const fetchEstadosCaso = async () => {
       }
 
       setSuccess('¡Proyecto y casos creados con éxito!');
-      handleCloseCreateModal(); // Cierra y resetea el formulario
+      
+      // IMPORTANTE: Asegúrate de que handleCloseCreateModal también limpie 'setNuevoArea("")'
+      handleCloseCreateModal(); 
+      
       if (userRole) fetchPendientes(userRole);
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setIsLoading(false); // <-- Desactiva el Spinner (incluso si hay error)
+      setIsLoading(false);
     }
   };
-
   // ================================================================
   // ===== 🚀 LÓGICA DE MODAL DE DETALLES (ACTUALIZAR CASO) 🚀 =====
   // ================================================================
@@ -419,67 +430,82 @@ const fetchEstadosCaso = async () => {
   setEditableCasos(updatedCasos);
 };
 
-  // backend/src/casos/casos.service.ts
-const handleUpdateCaso = async (casoIndex: number) => {
-  setError('');
-  setSuccess('');
-  setIsLoading(true);
+  // --- FUNCIÓN ACTUALIZADA PARA SUBIR FOTOS Y TEXTO ---
+  const handleUpdateCaso = async (casoId: number) => {
+    setError('');
+    setSuccess('');
+    
+    // 1. Recopilamos los datos específicos de este caso usando su ID
+    const estadoId = nuevoEstadoCaso[casoId];
+    const textoRespuesta = comentarioEdicion[casoId] || ''; 
+    const archivo = archivosAdjuntos[casoId];
 
-  const casoAActualizar = editableCasos[casoIndex];
-  if (!casoAActualizar) return;
-
-  // --- 👇 INICIO DE LA VALIDACIÓN AÑADIDA ---
-  if (
-    // 1. ¿El estado seleccionado REQUIERE un comentario?
-    casoAActualizar.estado.requiereComentario &&
-    // 2. ¿Y el comentario está vacío o nulo?
-    (!casoAActualizar.comentario ||
-      casoAActualizar.comentario.trim() === '')
-  ) {
-    // 3. Si es así, mostrar un error y detener la función
-    setError(
-      `El estado "${casoAActualizar.estado.nombre}" requiere un comentario.`,
-    );
-    setIsLoading(false);
-    return; // ¡No guardamos!
-  }
-  // --- 👆 FIN DE LA VALIDACIÓN ---
-
-  const casoId = casoAActualizar.id;
-
-  // Preparamos el 'body' para que coincida con el DTO del backend
-  const body = {
-    estadoId: casoAActualizar.estado.id, // Enviamos el ID del estado
-    comentario: casoAActualizar.comentario, // Enviamos el comentario
-  };
-
-  try {
-    // Llamamos a la API de 'casos' (PATCH)
-    const res = await fetch(`${API_URL}/casos/${casoId}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'No se pudo actualizar el caso.');
+    // Validación: El estado es obligatorio para saber qué pasó
+    if (!estadoId) {
+        alert("⚠️ Por favor selecciona un Nuevo Estado antes de guardar.");
+        return;
     }
 
-    setSuccess(`¡Caso #${casoId} actualizado con éxito!`);
+    setIsLoading(true);
 
-    // Recargamos la lista de proyectos para mostrar el cambio
-    if (userRole) fetchPendientes(userRole);
+    try {
+      // 2. Preparamos el "Sobre" (FormData) para enviar archivo + texto
+      const formData = new FormData();
+      formData.append('estadoId', String(estadoId));
+      formData.append('comentario', textoRespuesta);
+      
+      // Solo metemos la foto al sobre si el usuario subió una
+      if (archivo) {
+        formData.append('file', archivo); 
+      }
 
-  } catch (err: any) {
-    setError(err.message);
-  } finally {
-    setIsLoading(false); // Desactivamos el spinner
-  }
-};
+      // 3. Enviamos a la API
+      // NOTA: Al usar FormData, NO ponemos 'Content-Type': 'application/json'
+      const res = await fetch(`${API_URL}/casos/${casoId}`, { 
+        method: 'PATCH', // (Asegúrate que tu backend usa PATCH, si no cámbialo a PUT)
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData, 
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'No se pudo actualizar el caso.');
+      }
+
+      // 4. ¡Éxito! Limpiamos los formularios
+      setSuccess(`¡Respuesta del caso #${casoId} enviada correctamente! 🚀`);
+      
+      // Borramos la foto y el comentario de la memoria para que quede limpio
+      setArchivosAdjuntos(prev => {
+          const copy = { ...prev };
+          delete copy[casoId];
+          return copy;
+      });
+      setComentarioEdicion(prev => {
+          const copy = { ...prev };
+          delete copy[casoId];
+          return copy;
+      });
+      // Reseteamos el selector de estado
+      setNuevoEstadoCaso(prev => {
+          const copy = { ...prev };
+          delete copy[casoId];
+          return copy;
+      });
+
+      // Recargamos la lista de proyectos para ver los cambios reflejados
+      // (Asegúrate de llamar a la función correcta que recarga tus datos)
+       if (userRole) fetchPendientes(userRole); // O fetchPendientes() si no usa rol
+
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Error de conexión");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 // Esta función se llama desde el botón "Finalizar Proyecto"
 // Llama a la API de 'pendientes' (PATCH) para cambiar el estado.
 const handleMarkAsConcluido = async () => {
@@ -607,34 +633,56 @@ const getResumenEstadoProyecto = (
     );
   };
 
+  // Función para guardar la asignación (Modal Pequeño) - CORREGIDA
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     if (!editingPendiente) return;
+
+    // 👇 AQUÍ ESTABA EL ERROR: Tu llave se llama 'authToken', no 'token'
+    const token = localStorage.getItem('authToken'); 
+    
+    if (!token) {
+        alert("⚠️ No se encontró el token de sesión. Por favor relogueate.");
+        return;
+    }
+
     try {
-      const res = await fetch(
-        `${API_URL}/pendientes/${editingPendiente.id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            status: selectedStatus,
-            colaboradorAsignadoId: selectedColaboradorId
-              ? parseInt(selectedColaboradorId)
-              : null,
-          }),
+      // Preparamos el paquete
+      const payload: any = {};
+      
+      if (selectedColaboradorId) {
+        payload.colaboradorAsignadoId = Number(selectedColaboradorId);
+      } else {
+        payload.colaboradorAsignadoId = null;
+      }
+
+      // Usamos FETCH con la llave correcta
+      const response = await fetch(`${API_URL}/pendientes/${editingPendiente.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Ahora sí enviamos el authToken real
         },
-      );
-      if (!res.ok) throw new Error('Falló la actualización.');
-      setEditingPendiente(null);
-      setSuccess('Proyecto actualizado.');
-      if (userRole) fetchPendientes(userRole);
-    } catch (err: any) {
-      setError(err.message);
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+            alert("Tu sesión ha expirado. Por favor inicia sesión nuevamente.");
+            return;
+        }
+        throw new Error('Error al conectar con el servidor');
+      }
+
+      // ✅ ÉXITO
+      setEditingPendiente(null); // 1. Cerramos la ventana
+      
+      // 2. Recargamos la tabla de afuera inmediatamente
+      await fetchPendientes(userRole); 
+
+    } catch (error) {
+      console.error(error);
+      alert('Error actualizando el proyecto. Revisa la consola.');
     }
   };
 
@@ -965,48 +1013,278 @@ const handleDeletePendiente = async () => {
         </Alert>
       )}
 <hr /> {/* Separador */}
+{/* ================================================================ */}
+      {/* ===== 🏆 TABLA DE COMPETENCIA MENSUAL (AUTO-ACTUALIZABLE) 🏆 ===== */}
+      {/* ================================================================ */}
+      {(userRole === 'Administrador' || userRole === 'Colaborador') && (
+        <Card className="mb-4 shadow border-0">
+          <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
+            <div className="d-flex justify-content-between align-items-end flex-wrap gap-3">
+              <div>
+                <div className="d-flex align-items-center gap-2">
+                  <span style={{fontSize: '1.8rem'}}>🏆</span>
+                  <h3 className="mb-0 fw-bold text-primary">Competencia del Mes</h3>
+                </div>
+                <p className="text-muted mb-0 ms-1">
+                  Ranking de productividad en tiempo real.
+                </p>
+              </div>
+              
+              {/* Filtros de Fecha */}
+              <div className="d-flex gap-2 align-items-center bg-light p-2 rounded border">
+                <small className="fw-bold text-secondary text-uppercase" style={{fontSize:'0.7rem'}}>Periodo:</small>
+                <Form.Control 
+                  type="date" 
+                  size="sm"
+                  value={rankingStartDate}
+                  onChange={(e) => setRankingStartDate(e.target.value)}
+                  style={{ width: '130px', fontSize: '0.85rem' }}
+                />
+                <span className="text-muted fw-bold">-</span>
+                <Form.Control 
+                  type="date" 
+                  size="sm"
+                  value={rankingEndDate}
+                  onChange={(e) => setRankingEndDate(e.target.value)}
+                  style={{ width: '130px', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+          </Card.Header>
+          
+          <Card.Body className="pt-2">
+            {(() => {
+              // --- 1. LÓGICA DE CÁLCULO SEGURA (BLINDADA CONTRA ERRORES) ---
+              
+              // Protección 1: Aseguramos que pendientes sea un array
+              const listaSegura = Array.isArray(pendientes) ? [...pendientes] : [];
 
-  {/* --- 👇 INICIO DE LA CORRECCIÓN --- */}
-  {/* Desempeño de Colaboradores (Ahora condicional) */}
-  {(userRole === 'Administrador' || userRole === 'Colaborador') && (
-    <Card className="mb-4 shadow-sm">
-      <Card.Body>
-        <Card.Title as="h3">Desempeño de Colaboradores</Card.Title>
-        <Row className="mt-3">
-          {performanceArray.length > 0 ? (
-            performanceArray.map((colab: any) => (
-              <Col md={6} lg={4} key={colab.username} className="mb-3">
-                {/* (Tu tarjeta 'colab' individual ya estaba bien) */}
-                <Card>
-                  <Card.Header as="h5">{colab.username}</Card.Header>
-                  <Card.Body>
-                    <Card.Text>
-                      Total Asignados: <strong>{colab.total}</strong>
-                    </Card.Text>
-                    <div className="d-flex justify-content-around">
-                      <Badge bg="success" className="p-2">
-                        Normal ({colab.normal})
-                      </Badge>
-                      <Badge bg="warning" className="p-2 text-dark">
-                        Urgente ({colab.urgente})
-                      </Badge>
-                      <Badge bg="danger" className="p-2">
-                        Crítico ({colab.critico})
-                      </Badge>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))
-          ) : (
-            <Col>
-              <p>No hay pendientes asignados para mostrar métricas.</p>
-            </Col>
-          )}
-        </Row>
-      </Card.Body>
-    </Card>
-  )}
+             // --- 2. FILTRO Y ACUMULACIÓN (VERSIÓN COMPARACIÓN DE TEXTO) ---
+              const statsObj = listaSegura.reduce((acc: any, p: any) => {
+                
+                // FUNCIÓN AUXILIAR: Normalizar todo a "AAAA-MM-DD"
+                // Esto elimina problemas de horas, minutos y zonas horarias.
+                const normalizarFecha = (fecha: string | Date | null) => {
+                    if (!fecha) return "0000-00-00";
+                    
+                    // Si ya es string
+                    let fStr = String(fecha);
+                    
+                    // Caso 1: Formato Latino "20/11/2025" (El que tienes en tu tabla)
+                    if (fStr.includes('/') && fStr.length === 10) {
+                        const [dia, mes, anio] = fStr.split('/');
+                        return `${anio}-${mes}-${dia}`; // Retorna "2025-11-20"
+                    }
+                    
+                    // Caso 2: Formato ISO "2025-11-20T15:30:00..."
+                    if (fStr.includes('T')) {
+                        return fStr.split('T')[0];
+                    }
+                    
+                    // Caso 3: Objeto Date real
+                    if (fecha instanceof Date) {
+                        return fecha.toISOString().split('T')[0];
+                    }
+
+                    return fStr; // Retornar tal cual si no sabemos qué es
+                };
+
+                // 1. Obtenemos las fechas en formato texto simple
+                const fechaProyectoStr = normalizarFecha(p.fechaAsignacion || p.fechaCreacion);
+                const filtroInicioStr = rankingStartDate; // Ya viene como "2025-11-01"
+                const filtroFinStr = rankingEndDate;     // Ya viene como "2025-11-20"
+
+                // 2. Comparación Alfanumérica (Infalible para fechas ISO)
+                // "¿Es 2025-11-20 mayor o igual a 2025-11-01 y menor o igual a 2025-11-20?"
+                const estaDentroDelRango = (fechaProyectoStr >= filtroInicioStr && fechaProyectoStr <= filtroFinStr);
+
+                // 3. Debug en consola (Solo para el ID 7 - Jesus)
+                if (p.id === 7) {
+                    console.log(`🕵️‍♂️ REVISIÓN JESUS (ID 7):`, {
+                        FechaOriginal: p.fechaAsignacion,
+                        FechaNormalizada: fechaProyectoStr,
+                        FiltroInicio: filtroInicioStr,
+                        FiltroFin: filtroFinStr,
+                        PASA: estaDentroDelRango
+                    });
+                }
+
+                // SI NO PASA EL FILTRO, LO IGNORAMOS
+                if (!estaDentroDelRango) return acc;
+                
+                // SI NO TIENE COLABORADOR, LO IGNORAMOS
+                if (!p.colaboradorAsignado || !p.colaboradorAsignado.id) return acc;
+
+                const colabId = p.colaboradorAsignado.id;
+                
+                // Inicializar usuario
+                if (!acc[colabId]) {
+                  acc[colabId] = {
+                    usuario: p.colaboradorAsignado,
+                    total: 0,
+                    concluidos: 0,
+                    activos: 0,
+                    urgentes: 0,
+                    criticos: 0,
+                    normales: 0
+                  };
+                }
+
+                // Sumar puntos
+                acc[colabId].total++;
+                
+                if (p.status === 'Concluido') {
+                  acc[colabId].concluidos++;
+                } else {
+                  acc[colabId].activos++;
+                  
+                  // Calcular urgencia (Aquí sí usamos new Date para restar días)
+                  const hoy = new Date();
+                  // Para calcular días transcurridos, usamos fechaCreacion que es fija
+                  const fechaAntiguedad = p.fechaCreacion && p.fechaCreacion.includes('/') 
+                        ? new Date(p.fechaCreacion.split('/').reverse().join('-')) // Convertir a ISO para el objeto Date
+                        : new Date(p.fechaCreacion);
+
+                  const diffTime = hoy.getTime() - fechaAntiguedad.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                  
+                  if (diffDays >= 10) acc[colabId].criticos++;
+                  else if (diffDays >= 5) acc[colabId].urgentes++;
+                  else acc[colabId].normales++;
+                }
+
+                return acc;
+              }, {}); 
+              // --- 3. ORDENAMIENTO (RANKING) ---
+              const rankingArray = Object.values(statsObj).sort((a: any, b: any) => {
+                // Gana quien tenga más TOTAL. Si empatan, gana quien tenga más CONCLUIDOS.
+                if (b.total !== a.total) return b.total - a.total;
+                return b.concluidos - a.concluidos;
+              });
+
+              // Máximo puntaje para calcular porcentaje de barras (evitando división por cero)
+              const maxScore = rankingArray.length > 0 ? (rankingArray[0] as any).total : 1;
+// --- 4. RENDERIZADO (VISUAL: TABLA GAMIFICADA) ---
+              if (rankingArray.length === 0) {
+                return (
+                  <div className="text-center py-5 my-3 border border-dashed rounded bg-light">
+                    <h2 style={{fontSize: '2rem'}}>📅</h2>
+                    <h5 className="text-muted fw-bold mt-2">Sin datos en este periodo</h5>
+                    <p className="text-muted small mb-0">Ajusta las fechas o comienza a trabajar para aparecer aquí.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="table-responsive mt-3">
+                  <Table hover className="align-middle mb-0" style={{ fontSize: '0.9rem' }}>
+                    <thead className="bg-light text-secondary text-uppercase small">
+                      <tr>
+                        <th className="border-0 ps-4">Rank</th>
+                        <th className="border-0">Colaborador</th>
+                        <th className="border-0 text-center">Total</th>
+                        <th className="border-0">Salud del Trabajo</th>
+                        <th className="border-0" style={{width: '25%'}}>Rendimiento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankingArray.map((stat: any, index: number) => {
+                        
+                        // Configuración visual según posición
+                        let rankIcon;
+                        let rowClass = "";
+                        let barColor = "bg-primary";
+
+                        if (index === 0) {
+                          rankIcon = <span style={{fontSize: '1.5rem'}}>🥇</span>;
+                          rowClass = "bg-warning bg-opacity-10"; // Fondo sutil para el líder
+                          barColor = "bg-warning"; 
+                        } else if (index === 1) {
+                          rankIcon = <span style={{fontSize: '1.4rem'}}>🥈</span>;
+                          barColor = "bg-secondary";
+                        } else if (index === 2) {
+                          rankIcon = <span style={{fontSize: '1.3rem'}}>🥉</span>;
+                          barColor = "bg-danger opacity-75";
+                        } else {
+                          rankIcon = <span className="fw-bold text-secondary text-muted">#{index + 1}</span>;
+                          barColor = "bg-info opacity-50";
+                        }
+
+                        const percentage = Math.round((stat.total / maxScore) * 100);
+
+                        return (
+                          <tr key={stat.usuario.id || index} className={rowClass} style={{borderBottom: '1px solid #f0f0f0'}}>
+                            
+                            {/* 1. RANKING */}
+                            <td className="ps-4 fw-bold">{rankIcon}</td>
+                            
+                            {/* 2. NOMBRE Y CONCLUIDOS */}
+                            <td>
+                                <div className="d-flex flex-column">
+                                    <span className="fw-bold text-dark">{stat.usuario.username || stat.usuario.nombre}</span>
+                                    <small className="text-muted" style={{fontSize: '0.75rem'}}>
+                                        {stat.concluidos} casos finalizados
+                                    </small>
+                                </div>
+                            </td>
+
+                            {/* 3. TOTAL (Centro de atención) */}
+                            <td className="text-center">
+                                <h5 className="mb-0 fw-black text-primary">{stat.total}</h5>
+                            </td>
+
+                            {/* 4. ESTADO (Badges compactos) */}
+                            <td>
+                                <div className="d-flex gap-2 align-items-center">
+                                    {/* NORMALES */}
+                                    <div className="d-flex align-items-center gap-1 text-muted small">
+                                        🟢 {stat.normales}
+                                    </div>
+
+                                    {/* URGENTES */}
+                                    {stat.urgentes > 0 ? (
+                                        <Badge bg="warning" text="dark" className="fw-normal shadow-sm">
+                                            ⚠️ {stat.urgentes}
+                                        </Badge>
+                                    ) : (
+                                        <span className="opacity-25 grayscale small">⚠️ 0</span> 
+                                    )}
+
+                                    {/* CRÍTICOS */}
+                                    {stat.criticos > 0 ? (
+                                        <Badge bg="danger" className="fw-normal shadow-sm animate__animated animate__pulse animate__infinite">
+                                            🔥 {stat.criticos}
+                                        </Badge>
+                                    ) : (
+                                        <span className="opacity-25 grayscale small">🔥 0</span>
+                                    )}
+                                </div>
+                            </td>
+
+                            {/* 5. BARRA DE RENDIMIENTO */}
+                            <td>
+                                <div className="d-flex align-items-center gap-2">
+                                    <div className="progress flex-grow-1" style={{ height: '6px', borderRadius: '3px', backgroundColor: '#e9ecef' }}>
+                                        <div 
+                                            className={`progress-bar ${barColor}`} 
+                                            role="progressbar" 
+                                            style={{ width: `${percentage}%`, transition: 'width 1s ease' }} 
+                                        ></div>
+                                    </div>
+                                    <span className="small fw-bold text-muted" style={{width: '30px', textAlign: 'right'}}>{percentage}%</span>
+                                </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+              );
+            })()}
+          </Card.Body>
+        </Card>
+      )}
   {/* --- 👆 FIN DE LA CORRECCIÓN --- */}
       {/* ================================================================ */}
       {/* ===== 🚀 MODAL DE CREACIÓN DE PROYECTO (ACTUALIZADO) 🚀 ===== */}
@@ -1025,7 +1303,7 @@ const handleDeletePendiente = async () => {
       )}
 
       {/* ================================================================ */}
-{/* ===== 🚀 MODAL DE CREACIÓN (DISEÑO PROFESIONAL) 🚀 ===== */}
+{/* ===== 🚀 MODAL DE CREACIÓN (DISEÑO PROFESIONAL Y LIMPIO) 🚀 ===== */}
 {/* ================================================================ */}
 <Modal show={showCreateForm} onHide={handleCloseCreateModal} size="lg">
   <Form onSubmit={handleCreateSubmit}>
@@ -1033,47 +1311,69 @@ const handleDeletePendiente = async () => {
       <Modal.Title>Crear Nuevo Proyecto</Modal.Title>
     </Modal.Header>
 
-    {/* --- 👇 INICIO DEL REDISEÑO --- */}
-    <Modal.Body style={{ backgroundColor: '#f8f9fa' }}> {/* Damos un fondo gris claro al modal */}
+    <Modal.Body style={{ backgroundColor: '#f8f9fa' }}> 
 
-      {/* Alerta de error DENTRO del modal */}
+      {/* Alerta de error */}
       {error && (
         <Alert variant="danger" onClose={() => setError('')} dismissible>
           {error}
         </Alert>
       )}
 
-      {/* --- SECCIÓN PROYECTO (CON "PRESENCIA") --- */}
-      <Card className="border-2 shadow-sm mb-4">
+      {/* --- SECCIÓN 1: DETALLES PRINCIPALES --- */}
+      <Card className="mb-4 shadow-sm border-0">
         <Card.Body>
-          <Form.Group>
-            <Form.Label as="h5">Nombre del Centro (Proyecto)</Form.Label>
+          <h6 className="fw-bold text-primary mb-3 border-bottom pb-2">
+            1. Detalles del Proyecto
+          </h6>
+          
+          {/* CAMPO 1: NOMBRE */}
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold">Nombre del Centro / Proyecto</Form.Label>
             <Form.Control
               type="text"
+              placeholder="Ej: Politécnico Félix María Ruiz"
               value={newNombreCentro}
               onChange={(e) => setNewNombreCentro(e.target.value)}
               required
-              placeholder="Ej: Politécnico Félix María Ruiz"
-              disabled={isLoading}
-              size="lg" // <-- Hacemos el texto más grande
+              size="lg"
             />
           </Form.Group>
+
+          {/* CAMPO 2: SELECTOR DE ÁREA (Auto-asignación) */}
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold text-success">
+              <i className="bi bi-diagram-3-fill me-1"></i> 
+              Departamento / Área (Opcional)
+            </Form.Label>
+            <Form.Select
+              value={nuevoArea} 
+              onChange={(e) => setNuevoArea(e.target.value)}
+              className="border-success"
+            >
+              <option value="">General (Asignaré manualmente después)</option>
+              <option value="Impresion">Impresión (Va directo a Adrian)</option>
+              <option value="Coordinacion Administrativa">Coord. Administrativa (Va directo a Yubelis)</option>
+              <option value="Redes y Web">Redes y Web (Va directo a Alondra)</option>
+            </Form.Select>
+            <Form.Text className="text-muted small">
+              * Si eliges un área, el proyecto se asignará e iniciará automáticamente.
+            </Form.Text>
+          </Form.Group>
+
         </Card.Body>
       </Card>
 
-      {/* --- SECCIÓN CASOS (MEJOR ALINEADA) --- */}
-      <h5>Casos (Sub-tareas)</h5>
+      {/* --- SECCIÓN 2: CASOS (SUB-TAREAS) --- */}
+      <h5 className="mb-3">2. Casos (Sub-tareas)</h5>
 
       <ListGroup variant="flush" className="mb-3">
         {newCasos.map((caso, index) => (
-          // Cada caso es su propia tarjeta blanca
           <ListGroup.Item key={index} className="p-3 mb-3 border rounded shadow-sm bg-white">
 
-            {/* --- Título y Botón de Borrar (alineados) --- */}
+            {/* Título y Botón Borrar */}
             <div className="d-flex justify-content-between align-items-center mb-2">
-              <Form.Label as="h6" className="m-0">
-                <strong>Caso #{index + 1}</strong>
-              </Form.Label>
+              <h6 className="m-0 fw-bold text-secondary">Caso #{index + 1}</h6>
               {newCasos.length > 1 && (
                 <Button
                   variant="outline-danger"
@@ -1081,71 +1381,58 @@ const handleDeletePendiente = async () => {
                   onClick={() => handleRemoveCaso(index)}
                   disabled={isLoading}
                 >
-                  Eliminar
+                  <i className="bi bi-trash"></i> Eliminar
                 </Button>
               )}
             </div>
 
-            {/* --- Campo de Descripción (ancho completo) --- */}
+            {/* Descripción */}
             <Form.Group className="mb-3">
-              <Form.Label>Descripción</Form.Label>
+              <Form.Label className="small fw-bold text-muted">Descripción</Form.Label>
               <Form.Control
                 as="textarea"
-                rows={3}
+                rows={2}
                 value={caso.descripcion}
-                onChange={(e) =>
-                  handleCasoChange(index, e.target.value)
-                }
+                onChange={(e) => handleCasoChange(index, e.target.value)}
                 required
-                placeholder="Descripción detallada de la sub-tarea"
+                placeholder="Describe la tarea a realizar..."
                 disabled={isLoading}
               />
             </Form.Group>
 
-            {/* --- Campo de Imágenes (ancho completo) --- */}
+            {/* Imágenes */}
             <Form.Group>
-              <Form.Label>Imágenes (Opcional)</Form.Label>
+              <Form.Label className="small fw-bold text-muted">Imágenes de Referencia (Opcional)</Form.Label>
               <Form.Control
                 type="file"
                 multiple
-                ref={fileInputRef}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  handleCasoFileChange(index, e)
-                }
+                // No usamos ref aquí para evitar problemas con múltiples filas
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleCasoFileChange(index, e)}
                 disabled={isLoading}
               />
             </Form.Group>
 
-            {/* Lista de Archivos Seleccionados (Preview) */}
+            {/* Lista de archivos seleccionados */}
             {caso.files.length > 0 && (
-              <ListGroup className="mt-2" horizontal>
+              <div className="mt-2 d-flex flex-wrap gap-2">
                 {caso.files.map((file, fileIndex) => (
-                  <ListGroup.Item
-                    key={fileIndex}
-                    className="d-flex align-items-center p-1 me-1"
-                  >
-                    <small className="text-muted me-2">
-                      {file.name.substring(0, 15)}...
-                    </small>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() =>
-                        handleRemoveCasoFile(index, fileIndex)
-                      }
-                      disabled={isLoading}
+                  <span key={fileIndex} className="badge bg-light text-dark border d-flex align-items-center">
+                    {file.name.substring(0, 15)}...
+                    <span 
+                      className="ms-2 text-danger cursor-pointer fw-bold" 
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleRemoveCasoFile(index, fileIndex)}
                     >
                       &times;
-                    </Button>
-                  </ListGroup.Item>
+                    </span>
+                  </span>
                 ))}
-              </ListGroup>
+              </div>
             )}
 
           </ListGroup.Item>
         ))}
       </ListGroup>
-
       <Button
         variant="secondary"
         onClick={handleAddCaso}
@@ -1292,7 +1579,7 @@ const handleDeletePendiente = async () => {
     {renderPendientesTable(pendientesConcluidos, false)}
   </Card.Body>
 </Card>
-      {/* Modal de Actualización (Asignar Colaborador) */}
+      {/* Modal de Actualización (LIMPIO: Solo Asignar Colaborador) */}
       <Modal
         show={editingPendiente !== null}
         onHide={() => setEditingPendiente(null)}
@@ -1305,25 +1592,19 @@ const handleDeletePendiente = async () => {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleUpdateSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label>Estado</Form.Label>
-              <Form.Select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                <option value="Por Asignar" disabled></option>
-                <option value="Iniciado">Iniciado</option>
-                <option value="Fuera de oficina">Fuera de oficina</option>
-                <option value="En administración">En administración</option>
-                <option value="Concluido">Concluido</option>
-              </Form.Select>
-            </Form.Group>
+            
+            {/* HE BORRADO EL SELECTOR DE ESTADO AQUÍ.
+                Ahora el backend pondrá "Iniciado" automáticamente 
+                cuando elijas a alguien abajo.
+            */}
+
             {userRole === 'Administrador' && (
               <Form.Group className="mb-3">
-                <Form.Label>Asignar a Colaborador</Form.Label>
+                <Form.Label className="fw-bold text-primary">Asignar a Colaborador</Form.Label>
                 <Form.Select
                   value={selectedColaboradorId}
                   onChange={(e) => setSelectedColaboradorId(e.target.value)}
+                  className="form-control-lg" // Lo hice un poco más grande para que sea fácil de ver
                 >
                   <option value="">-- Sin Asignar --</option>
                   {allUsers
@@ -1336,7 +1617,8 @@ const handleDeletePendiente = async () => {
                 </Form.Select>
               </Form.Group>
             )}
-            <div className="d-flex justify-content-end gap-2 mt-4">
+
+            <div className="d-flex justify-content-end gap-2 mt-4 border-top pt-3">
               <Button
                 variant="secondary"
                 onClick={() => setEditingPendiente(null)}
@@ -1344,7 +1626,7 @@ const handleDeletePendiente = async () => {
                 Cancelar
               </Button>
               <Button variant="primary" type="submit">
-                Guardar Cambios
+                💾 Guardar Asignación
               </Button>
             </div>
           </Form>
@@ -1393,187 +1675,217 @@ const handleDeletePendiente = async () => {
       </Modal>
 
 {/* ================================================================ */}
-{/* ===== 🚀 MODAL DE DETALLES (DISEÑO PROFESIONAL) 🚀 ===== */}
+{/* ===== 🚀 INICIO DEL MODAL DE DETALLES (VERSIÓN FINAL 100%) 🚀 ===== */}
 {/* ================================================================ */}
 <Modal
   show={viewingProyecto !== null}
   onHide={() => {
     setViewingProyecto(null);
-    setEditableCasos([]); // Limpiamos el estado de edición al cerrar
-    setError(''); // Limpiamos errores
-    setSuccess(''); // Limpiamos éxito
+    setEditableCasos([]); 
+    setError('');
+    setSuccess('');
   }}
   size="xl"
   centered
 >
-  <Modal.Header closeButton>
+  <Modal.Header closeButton className="bg-primary text-white">
     <Modal.Title>
-      Detalles del Proyecto: {viewingProyecto?.nombreCentro} (ID: #
-      {viewingProyecto?.id})
+      📋 Detalles: {viewingProyecto?.nombreCentro} (ID: #{viewingProyecto?.id})
     </Modal.Title>
   </Modal.Header>
 
-  {/* --- 👇 INICIO DEL REDISEÑO --- */}
-  <Modal.Body style={{ backgroundColor: '#f8f9fa' }}> {/* Fondo gris claro */}
-
-    {/* Alertas de error/éxito DENTRO del modal */}
-    {error && (
-      <Alert variant="danger" onClose={() => setError('')} dismissible>
-        {error}
-      </Alert>
-    )}
-    {success && (
-      <Alert variant="success" onClose={() => setSuccess('')} dismissible>
-        {success}
-      </Alert>
-    )}
+  <Modal.Body style={{ backgroundColor: '#f8f9fa', maxHeight: '80vh', overflowY: 'auto' }}>
+    
+    {/* 1. ALERTAS DE ERROR O ÉXITO */}
+    {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
+    {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
 
     {viewingProyecto && (
       <>
-        {/* --- Sección de Información General (Ahora con sombra) --- */}
-        <Card className="mb-4 shadow-sm">
-          <Card.Header as="h5">Información General</Card.Header>
+        {/* 2. TARJETA DE INFORMACIÓN GENERAL */}
+        <Card className="mb-4 shadow-sm border-0">
+          <Card.Header as="h6" className="bg-white border-bottom fw-bold text-primary">
+            ℹ️ Información General
+          </Card.Header>
           <Card.Body>
             <Row>
               <Col md={4}>
-                <strong>Asesor:</strong> {viewingProyecto.asesor.username}
+                <strong>Asesor:</strong> {viewingProyecto.asesor?.username || 'N/A'}
               </Col>
               <Col md={4}>
                 <strong>Asignado a:</strong>{' '}
                 {viewingProyecto.colaboradorAsignado ? (
-                  viewingProyecto.colaboradorAsignado.username
+                  <Badge bg="info">{viewingProyecto.colaboradorAsignado.username}</Badge>
                 ) : (
                   <Badge bg="secondary">Sin Asignar</Badge>
                 )}
               </Col>
               <Col md={4}>
-                <strong>Estado General:</strong> {viewingProyecto.status}
+                <strong>Estado Actual:</strong> <Badge bg="dark">{viewingProyecto.status}</Badge>
               </Col>
             </Row>
           </Card.Body>
         </Card>
 
-        {/* --- Sección de Lista de Casos (INTERACTIVA) --- */}
-        <h5>Casos (Sub-tareas)</h5>
+        {/* 3. LISTA DE CASOS */}
+        <h5 className="mb-3 text-dark border-bottom pb-2">Casos Pendientes</h5>
 
-        <ListGroup>
-          {editableCasos.map((caso, index) => (
-            // --- Cada caso es una Tarjeta Blanca ---
-            <ListGroup.Item 
-              key={caso.id} 
-              className="p-3 mb-3 border rounded shadow-sm bg-white"
-            >
-              <Row>
-                {/* Columna de Descripción y Archivos */}
-                <Col md={5}>
-                  <Form.Label>
-                    <strong>Caso #{index + 1}:</strong> Descripción
-                  </Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    defaultValue={caso.descripcion}
-                    readOnly // Mantenemos la descripción como solo lectura
-                  />
+        {editableCasos && editableCasos.length > 0 ? (
+          <ListGroup variant="flush">
+            {editableCasos.map((caso, index) => {
+              
+              // Lógica para evitar errores con el objeto estado
+              const nombreEstado = typeof caso.estado === 'object' && caso.estado !== null 
+                ? caso.estado.nombre 
+                : caso.estado;
+              const colorBadge = nombreEstado === 'Completado' ? 'success' : 'warning';
 
-                  {/* Mostrar imágenes/archivos del caso (Arreglado) */}
-                  {caso.imagenes && caso.imagenes.length > 0 && (
-                    <div className='mt-2'>
-                      <small>Archivos Adjuntos:</small>
-                      <ListGroup horizontal>
-                        {caso.imagenes.map((imgName, imgIdx) => (
-                          <ListGroup.Item 
-                            key={imgIdx} 
-                            as="a" 
-                            href={`${API_URL}/pendientes/uploads/${imgName}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className='p-1 me-1'
-                          >
-                            {imgName.endsWith('.pdf') ? `Ver PDF ${imgIdx + 1}` : `Ver Imagen ${imgIdx + 1}`}
-                          </ListGroup.Item>
-                        ))}
-                      </ListGroup>
-                    </div>
-                  )}
-                </Col>
-
-                {/* Columna de Estado y Comentario (INTERACTIVA) */}
-                <Col md={4}>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Estado del Caso</Form.Label>
-                    <Form.Select
-                      value={caso.estado ? caso.estado.id : ''}
-                      onChange={(e) =>
-                        handleCasoInputChange(index, 'estado', e.target.value)
-                      }
-                      disabled={isLoading}
-                      // --- Mejora Visual del Color (que ya hicimos) ---
-                      style={{
-                        color: caso.estado ? caso.estado.color : '#000',
-                        fontWeight: 'bold',
-                        borderColor: caso.estado ? caso.estado.color : '#dee2e6',
-                      }}
-                    >
-                      {estadosCaso.map((estado) => (
-                        <option key={estado.id} value={estado.id}>
-                          {estado.nombre}
-                        </option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                  <Form.Group>
-                    <Form.Label>Comentario</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      rows={1}
-                      placeholder="Añadir un comentario..."
-                      value={caso.comentario || ''}
-                      onChange={(e) =>
-                        handleCasoInputChange(
-                          index,
-                          'comentario',
-                          e.target.value,
-                        )
-                      }
-                      disabled={isLoading}
-                    />
-                  </Form.Group>
-                </Col>
-
-                {/* Columna de Acciones (INTERACTIVA) */}
-                <Col
-                  md={3}
-                  className="d-flex flex-column align-items-end justify-content-between"
+              return (
+                <ListGroup.Item 
+                  key={caso.id || index} 
+                  className="mb-4 border rounded shadow-sm p-0 overflow-hidden bg-white"
                 >
-                  <Button
-                    variant="primary"
-                    className="w-100 mt-auto"
-                    onClick={() => handleUpdateCaso(index)}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Guardando...' : 'Guardar Caso'}
-                  </Button>
-                </Col>
-              </Row>
-            </ListGroup.Item>
-          ))}
-        </ListGroup>
+                  
+                  {/* --- ZONA A: GRIS (INSTRUCCIÓN + RESPUESTA VISIBLE) --- */}
+                  <div className="bg-light p-3 border-bottom">
+                    
+                    {/* Encabezado */}
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h6 className="fw-bold text-secondary mb-0">📌 Tarea #{index + 1}</h6>
+                      <Badge bg={colorBadge}>{nombreEstado}</Badge>
+                    </div>
+                    
+                    {/* Instrucción Original */}
+                    <div className="p-2 bg-white border rounded text-secondary fst-italic mb-2">
+                      {caso.descripcion || "Sin descripción."}
+                    </div>
+
+                    {/* Archivo Original */}
+                    {caso.archivoUrl && !caso.pendiente && (
+                      <div className="mb-2">
+                        <a href={caso.archivoUrl} target="_blank" rel="noreferrer" className="text-decoration-none small">
+                          📎 Ver Adjunto Original
+                        </a>
+                      </div>
+                    )}
+
+                    {/* 👇 AQUÍ SE MUESTRA TU RESPUESTA GUARDADA ("TRA TRA") 👇 */}
+                    {(caso.comentario || (caso.archivoUrl && caso.pendiente)) && (
+                      <div className="mt-3 pt-2 border-top border-secondary-subtle">
+                        <strong className="small text-primary d-block mb-1">✅ Tu Reporte Actual:</strong>
+                        
+                        {/* Tu comentario */}
+                        {caso.comentario && (
+                           <div className="p-2 bg-info-subtle border border-info rounded text-dark small mb-2">
+                             💬 {caso.comentario}
+                           </div>
+                        )}
+
+                        {/* Tu foto */}
+                        {caso.archivoUrl && (
+                          <a 
+                            href={caso.archivoUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="btn btn-sm btn-dark"
+                          >
+                            📷 Ver Evidencia Subida
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* --- ZONA B: BLANCA (FORMULARIO) --- */}
+                  <div className="p-3">
+                    <h6 className="fw-bold text-primary mb-3">
+                      <i className="bi bi-pencil-square me-2"></i>
+                      Actualizar / Responder
+                    </h6>
+
+                    <Row className="g-3">
+                      {/* Selector Estado */}
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="small fw-bold text-muted">Nuevo Estado</Form.Label>
+                          <Form.Select
+                            size="sm"
+                            defaultValue={typeof caso.estado === 'object' ? caso.estado.id : 1}
+                            onChange={(e) => setNuevoEstadoCaso({ ...nuevoEstadoCaso, [caso.id]: Number(e.target.value) })}
+                          >
+                            <option value="1">Pendiente</option>
+                            <option value="2">En Proceso</option>
+                            <option value="3">Completado</option>
+                            <option value="4">Crítico 🔥</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+
+                      {/* Input Archivo */}
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label className="small fw-bold text-muted">Nueva Evidencia</Form.Label>
+                          <Form.Control
+                            type="file"
+                            size="sm"
+                            onChange={(e: any) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setArchivosAdjuntos({ ...archivosAdjuntos, [caso.id]: e.target.files[0] });
+                              }
+                            }}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      {/* Textarea */}
+                      <Col xs={12}>
+                        <Form.Group>
+                          <Form.Label className="small fw-bold text-muted">Actualizar Comentario</Form.Label>
+                          <Form.Control
+                            as="textarea"
+                            rows={2}
+                            placeholder="Escribe aquí para actualizar..."
+                            value={comentarioEdicion[caso.id] || ''}
+                            onChange={(e) => setComentarioEdicion({ ...comentarioEdicion, [caso.id]: e.target.value })}
+                          />
+                        </Form.Group>
+                      </Col>
+
+                      {/* Botón Guardar */}
+                      <Col xs={12} className="text-end">
+                        <Button 
+                          variant="primary" 
+                          size="sm"
+                          onClick={() => handleUpdateCaso(caso.id)}
+                        >
+                          💾 Guardar Avance
+                        </Button>
+                      </Col>
+                    </Row>
+                  </div>
+
+                </ListGroup.Item>
+              );
+            })}
+          </ListGroup>
+        ) : (
+          <div className="text-center p-5 text-muted bg-white border rounded">
+            <p className="mb-0">No hay sub-tareas asignadas a este proyecto.</p>
+          </div>
+        )}
       </>
     )}
   </Modal.Body>
-  {/* --- 👆 FIN DEL REDISEÑO --- */}
 
-  <Modal.Footer>
-    {/* Botón de Finalizar (que ya añadimos) */}
+  <Modal.Footer className="bg-light">
     {userRole === 'Administrador' && (
       <Button
         variant="success"
         disabled={isLoading}
         onClick={handleMarkAsConcluido}
-        className="me-auto" 
+        className="me-auto"
       >
-        {isLoading ? 'Finalizando...' : 'Finalizar Proyecto'}
+        {isLoading ? 'Finalizando...' : '✅ Finalizar Proyecto'}
       </Button>
     )}
 
@@ -1590,6 +1902,7 @@ const handleDeletePendiente = async () => {
     </Button>
   </Modal.Footer>
 </Modal>
+{/* ================= FIN DEL MODAL COMPLETO ================= */}
 {/* ================================================================ */}
 {/* ===== 🚀 NUEVO MODAL DE CONFIRMACIÓN DE BORRADO 🚀 ===== */}
 {/* ================================================================ */}

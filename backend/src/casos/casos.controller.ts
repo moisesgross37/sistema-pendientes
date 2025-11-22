@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile, // <--- IMPORTANTE: Nuevo import
   Req,
   HttpException,
   HttpStatus,
@@ -18,19 +19,16 @@ import {
 import { CasosService } from './casos.service';
 import { CreateCasoDto } from './dto/create-caso.dto';
 import { UpdateCasoDto } from './dto/update-caso.dto';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express'; // <--- IMPORTANTE: FileInterceptor singular
 import { extname, join } from 'path';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
 // -------------------------------------------------------
 // 🛑 CONSTANTE FIJA: LA MISMA QUE EN PENDIENTES
-// Todos los controladores deben apuntar al MISMO DISCO
-const UPLOAD_PATH = '/var/data'; 
+const UPLOAD_PATH = join(process.cwd(), 'uploads'); 
 // -------------------------------------------------------
 
-// (Mantenemos el Guard comentado como lo tenías)
-// @UseGuards(JwtAuthGuard)
 @Controller('casos')
 export class CasosController {
   private readonly logger = new Logger(CasosController.name);
@@ -39,44 +37,27 @@ export class CasosController {
     this.logger.log(`🚧 CASOS CONTROLLER: CONECTADO A /var/data`);
   }
 
-  // --- 👇 6. SUBIDA ARREGLADA (MODO FUERZA BRUTA) ---
-  // POST /casos/upload
+  // --- SUBIDA MULTIPLE (POST /casos/upload) ---
   @Post('upload')
-  @UseInterceptors(FilesInterceptor('files', 10)) // Quitamos diskStorage para manejarlo manual
+  @UseInterceptors(FilesInterceptor('files', 10)) 
   uploadFiles(@UploadedFiles() files: Array<Express.Multer.File>, @Req() req: Request) {
-    
     if (!files || files.length === 0) {
         throw new HttpException('No se enviaron archivos', HttpStatus.BAD_REQUEST);
     }
-
     const uploadedFilesInfo: any[] = [];
-    this.logger.log(`📥 CASOS: Recibiendo ${files.length} archivos...`);
 
     try {
-        // Asegurar que la carpeta existe
         if (!fs.existsSync(UPLOAD_PATH)) {
             fs.mkdirSync(UPLOAD_PATH, { recursive: true });
         }
 
         files.forEach((file) => {
-            // Generar nombre
-            const randomName = Array(32)
-                .fill(null)
-                .map(() => Math.round(Math.random() * 16).toString(16))
-                .join('');
+            const randomName = Array(32).fill(null).map(() => Math.round(Math.random() * 16).toString(16)).join('');
             const filename = `${randomName}${extname(file.originalname)}`;
-            
-            // Ruta completa en el disco seguro
             const fullPath = join(UPLOAD_PATH, filename);
 
-            // ESCRIBIR MANUALMENTE (Fuerza Bruta)
-            this.logger.log(`✍️ CASOS: Escribiendo en ${fullPath}`);
             fs.writeFileSync(fullPath, file.buffer); 
 
-            // Construir URL
-            // Nota: Dependiendo de cómo lo pida el front, puede que necesites
-            // apuntar a /casos/uploads o /pendientes/uploads.
-            // Por ahora lo dejamos apuntando a este controlador.
             const protocol = req.protocol;
             const host = req.get('host');
             const baseUrl = `${protocol}://${host}/casos/uploads`; 
@@ -87,7 +68,6 @@ export class CasosController {
                 url: `${baseUrl}/${filename}`
             });
         });
-
         return uploadedFilesInfo;
 
     } catch (error) {
@@ -96,8 +76,7 @@ export class CasosController {
     }
   }
 
-  // --- NUEVO: Endpoint para leer las imágenes desde Casos ---
-  // GET /casos/uploads/:filename
+  // --- SERVIR IMÁGENES (GET /casos/uploads/:filename) ---
   @Get('uploads/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
     const fullPath = join(UPLOAD_PATH, filename);
@@ -107,7 +86,6 @@ export class CasosController {
         res.status(404).json({ message: 'Imagen no encontrada en disco /var/data' });
     }
   }
-  // --- 👆 ---
 
   // POST /casos
   @Post()
@@ -121,12 +99,50 @@ export class CasosController {
     return this.casosService.findOne(id);
   }
 
-  // PATCH /casos/:id
+  // =====================================================================
+  // 🚀 AQUÍ ESTÁ LA MAGIA: PATCH CON SOPORTE DE ARCHIVOS + DATOS
+  // =====================================================================
   @Patch(':id')
-  update(
+  @UseInterceptors(FileInterceptor('file')) // <--- Escuchamos la llave 'file' del Frontend
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCasoDto: UpdateCasoDto,
+    @UploadedFile() file: Express.Multer.File, // <--- Capturamos el archivo
+    @Req() req: Request
   ) {
+    
+    // 1. LÓGICA DE GUARDADO DE ARCHIVO (Si viene uno nuevo)
+    if (file) {
+      this.logger.log(`📸 Recibida actualización de imagen para caso #${id}`);
+      
+      // Crear directorio si no existe
+      if (!fs.existsSync(UPLOAD_PATH)) fs.mkdirSync(UPLOAD_PATH, { recursive: true });
+
+      // Generar nombre único
+      const randomName = Array(32).fill(null).map(() => Math.round(Math.random() * 16).toString(16)).join('');
+      const filename = `${randomName}${extname(file.originalname)}`;
+      const fullPath = join(UPLOAD_PATH, filename);
+
+      // Guardar en disco
+      fs.writeFileSync(fullPath, file.buffer);
+
+      // Generar URL
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}/casos/uploads`; 
+      
+      // Asignar la URL al DTO para que se guarde en la BD
+      // (Usamos notación de corchetes por si Typescript se queja de que archivoUrl no existe en el DTO)
+      updateCasoDto['archivoUrl'] = `${baseUrl}/${filename}`;
+    }
+
+    // 2. CORRECCIÓN DE TIPOS (Vital para evitar error 500)
+    // FormData convierte los números en Strings. Aquí los devolvemos a números.
+    if (updateCasoDto.estadoId) {
+        updateCasoDto.estadoId = Number(updateCasoDto.estadoId);
+    }
+
+    // 3. Llamar al servicio
     return this.casosService.update(id, updateCasoDto);
   }
 

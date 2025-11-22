@@ -5,18 +5,22 @@ import {
   IsOptional,
   MinLength,
 } from 'class-validator';
+import { Type } from 'class-transformer'; // <--- 1. IMPORTAR ESTO ES OBLIGATORIO
 
-// Este DTO define lo que el frontend envía
-// cuando se presiona "Guardar Caso" en el modal de detalles.
 export class UpdateCasoDto {
 
-  // Ya no recibimos 'status' (string), recibimos el ID del estado
   @IsNumber()
-  @IsOptional() // Hacemos que sea opcional (por si solo se actualiza el comentario)
+  @IsOptional()
+  @Type(() => Number) // <--- 2. ESTA ES LA CURA: Convierte el texto "2" en número 2 automáticamente
   estadoId?: number;
 
   @IsString()
   @IsOptional()
-  @MinLength(0) // Permitimos que sea un string vacío (para borrar el comentario)
+  @MinLength(0)
   comentario?: string | null;
+
+  // (Opcional) Agregamos esto para que no se queje si guardamos la URL de la foto
+  @IsString()
+  @IsOptional()
+  archivoUrl?: string;
 }

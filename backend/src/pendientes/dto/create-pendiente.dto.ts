@@ -5,23 +5,21 @@ import {
   IsNumber,
   IsString,
   ValidateNested,
+  IsOptional, // <--- Importante: Añadimos IsOptional
 } from 'class-validator';
 
-// Este es un DTO "hijo" que define cómo luce
-// un caso simple dentro del formulario de creación.
+// DTO "Hijo" (Caso)
 class CreateCasoInputDto {
   @IsString()
   @IsNotEmpty()
   descripcion: string;
 
-  // --- 👇 AÑADIDO ---
   @IsArray()
-  @IsString({ each: true }) // Valida que cada elemento del array sea un string
+  @IsString({ each: true }) 
   imagenes: string[];
-  // --- 👆 ---
 }
 
-// Este es el DTO principal, ahora modificado
+// DTO Principal (Pendiente)
 export class CreatePendienteDto {
   @IsString()
   @IsNotEmpty()
@@ -30,15 +28,14 @@ export class CreatePendienteDto {
   @IsNumber()
   asesorId: number;
 
-  // --- CAMPOS ELIMINADOS ---
-  // Ya no recibimos 'descripcion' ni 'imagenes' a nivel de Pendiente
-  // descripcion?: string;
-  // imagenes?: string[];
+  // --- 👇 CAMPO NUEVO NECESARIO PARA LA MEJORA 👇 ---
+  @IsString()
+  @IsOptional() // Es opcional porque si no mandan nada, asumimos 'General'
+  area?: string; 
+  // --------------------------------------------------
 
-  // --- CAMPO NUEVO ---
-  // En su lugar, recibimos un array de 'casos'
   @IsArray()
-  @ValidateNested({ each: true }) // Valida cada objeto en el array
-  @Type(() => CreateCasoInputDto) // Le dice a class-validator qué clase usar
+  @ValidateNested({ each: true })
+  @Type(() => CreateCasoInputDto)
   casos: CreateCasoInputDto[];
 }

@@ -18,6 +18,12 @@ export class Caso {
   @Column()
   descripcion: string;
 
+  // --- ⭐ NUEVA COLUMNA AGREGADA (SOLUCIÓN DEL ERROR) ⭐ ---
+  // Aquí se guardará el link de la evidencia que subas (PDF/Imagen)
+  @Column({ nullable: true })
+  archivoUrl: string;
+  // --------------------------------------------------------
+
   @ManyToOne(() => EstadoCaso, (estado) => estado.casos, {
     eager: true,
     nullable: true,
@@ -33,11 +39,8 @@ export class Caso {
   @Column({ type: 'text', nullable: true })
   comentario: string | null;
 
-  // --- 👇 AQUÍ ESTÁ LA CORRECCIÓN ---
-  // Muchos Casos pertenecen a Un Pendiente
   @ManyToOne(() => Pendiente, (pendiente) => pendiente.casos, {
-    onDelete: 'CASCADE', // <-- ¡AÑADIMOS ESTO!
+    onDelete: 'CASCADE', 
   })
-  // --- 👆 ---
   pendiente: Pendiente;
 }

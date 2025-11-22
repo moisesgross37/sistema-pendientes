@@ -27,6 +27,9 @@ export class Pendiente {
   @Column()
   nombreCentro: string;
 
+  @Column({ nullable: true })
+  area: string; // Ej: 'General', 'Impresion', 'Admin'
+
   // --- 👇 AQUÍ ESTÁ LA CORRECCIÓN ---
   @Column({ nullable: true }) // <-- Le decimos que PUEDE ser nula
   descripcion: string;

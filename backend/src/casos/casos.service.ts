@@ -2,7 +2,7 @@
 import {
   Injectable,
   NotFoundException,
-  InternalServerErrorException, // Importado por seguridad
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,7 +10,7 @@ import { Caso } from './entities/caso.entity';
 import { Pendiente } from '../pendientes/entities/pendiente.entity';
 import { CreateCasoDto } from './dto/create-caso.dto';
 import { UpdateCasoDto } from './dto/update-caso.dto';
-import { EstadosCasosService } from '../estados-casos/estados-casos.service'; // <--- 1. IMPORTAR SERVICIO DE ESTADOS
+import { EstadosCasosService } from '../estados-casos/estados-casos.service';
 
 @Injectable()
 export class CasosService {
@@ -19,12 +19,10 @@ export class CasosService {
     private casoRepository: Repository<Caso>,
     @InjectRepository(Pendiente)
     private pendienteRepository: Repository<Pendiente>,
-    // --- 👇 2. INYECTAR EL SERVICIO DE ESTADOS ---
     private estadosCasosService: EstadosCasosService,
   ) {}
 
-  // --- 👇 3. FUNCIÓN 'CREATE' ARREGLADA ---
-  // (Esta se usa si creamos un caso 'suelto', no desde el modal de Pendientes)
+  // --- CREATE (Se queda igual, respetando tu lógica) ---
   async create(createCasoDto: CreateCasoDto): Promise<Caso> {
     const { pendienteId, descripcion } = createCasoDto;
 
@@ -33,7 +31,6 @@ export class CasosService {
       throw new NotFoundException(`Pendiente con ID ${pendienteId} no encontrado.`);
     }
 
-    // Buscar el estado por defecto "Pendiente"
     const estadoPendiente = await this.estadosCasosService.findOneByNombre('Pendiente');
     if (!estadoPendiente) {
       throw new InternalServerErrorException(
@@ -45,16 +42,15 @@ export class CasosService {
       descripcion,
       pendiente,
       estado: estadoPendiente,
-      // (imagenes se añadiría en otro paso si usamos esta ruta)
     });
     return this.casoRepository.save(nuevoCaso);
   }
 
-  // --- (findOne se queda igual) ---
+  // --- FIND ONE (Se queda igual) ---
   async findOne(id: number): Promise<Caso> {
     const caso = await this.casoRepository.findOne({
       where: { id },
-      relations: ['estado', 'pendiente'], // Cargar las relaciones
+      relations: ['estado', 'pendiente'],
     });
     if (!caso) {
       throw new NotFoundException(`Caso con ID ${id} no encontrado.`);
@@ -62,33 +58,40 @@ export class CasosService {
     return caso;
   }
 
-  // --- 👇 4. FUNCIÓN 'UPDATE' (DEL MODAL) ARREGLADA ---
+  // --- ⭐ UPDATE ARREGLADO (AQUÍ ESTÁ LA SOLUCIÓN) ⭐ ---
   async update(id: number, updateCasoDto: UpdateCasoDto): Promise<Caso> {
-    const { estadoId, comentario } = updateCasoDto;
+    // Desestructuramos los datos que vienen del Controller
+    // Nota: archivoUrl viene "inyectado" desde el controller si se subió foto
+    const { estadoId, comentario, archivoUrl } = updateCasoDto as UpdateCasoDto & { archivoUrl?: string };
 
-    // 1. Cargar el caso que queremos modificar
-    const caso = await this.findOne(id); // Reutilizamos findOne
+    // 1. Cargar el caso actual
+    const caso = await this.findOne(id);
 
-    // 2. Manejar el cambio de Estado (si se envió un estadoId)
+    // 2. Manejar cambio de Estado (Tu lógica original intacta)
     if (estadoId !== undefined) {
-      // Si nos pasaron un estadoId, lo buscamos
       const nuevoEstado = await this.estadosCasosService.findOne(estadoId);
       if (!nuevoEstado) {
         throw new NotFoundException(`EstadoCaso con ID ${estadoId} no encontrado.`);
       }
-      caso.estado = nuevoEstado; // Asignamos el objeto
+      caso.estado = nuevoEstado;
     }
 
-    // 3. Manejar el cambio de Comentario (si se envió un comentario)
+    // 3. Manejar cambio de Comentario
     if (comentario !== undefined) {
       caso.comentario = comentario;
     }
 
-    // 4. Guardar y devolver el caso actualizado
+    // 4. ⭐ Manejar cambio de Foto (LO NUEVO) ⭐
+    // Si el controller nos mandó una URL nueva, la guardamos en la base de datos
+    if (archivoUrl) {
+      caso.archivoUrl = archivoUrl;
+    }
+
+    // 5. Guardar cambios
     return this.casoRepository.save(caso);
   }
 
-  // --- (remove se queda igual por ahora) ---
+  // --- REMOVE (Se queda igual) ---
   async remove(id: number): Promise<{ message: string }> {
     const caso = await this.findOne(id);
     await this.casoRepository.remove(caso);

@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, FindOptionsWhere } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreatePendienteDto } from './dto/create-pendiente.dto';
 import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { Pendiente } from './entities/pendiente.entity';
@@ -13,7 +13,7 @@ import { Usuario } from '../usuarios/entities/usuario.entity';
 import * as fs from 'fs/promises';
 import { join } from 'path';
 import { Caso } from '../casos/entities/caso.entity';
-import { EstadosCasosService } from '../estados-casos/estados-casos.service'; // <--- 1. IMPORTAR SERVICIO
+import { EstadosCasosService } from '../estados-casos/estados-casos.service';
 
 @Injectable()
 export class PendientesService {
@@ -25,12 +25,17 @@ export class PendientesService {
     @InjectRepository(Caso)
     private casosRepository: Repository<Caso>,
     private dataSource: DataSource,
-    // --- 👇 2. INYECTAR SERVICIO ---
     private estadosCasosService: EstadosCasosService,
   ) {}
 
+  // backend/src/pendientes/pendientes.service.ts
+
+  // ... (imports y constructor siguen igual)
+
+  // backend/src/pendientes/pendientes.service.ts
+
   async create(createPendienteDto: CreatePendienteDto): Promise<Pendiente> {
-    const { nombreCentro, asesorId, casos } = createPendienteDto;
+    const { nombreCentro, asesorId, casos, area } = createPendienteDto;
 
     const asesor = await this.usuariosRepository.findOneBy({ id: asesorId });
     if (!asesor) {
@@ -42,18 +47,48 @@ export class PendientesService {
       );
     }
 
-    // --- 👇 3. LÓGICA DE ESTADO NUEVA ---
-    // Buscamos el estado por defecto. Si no existe, el sistema falla
-    // (Esto es bueno, nos obliga a crear los estados por defecto primero)
     const estadoPendiente = await this.estadosCasosService.findOneByNombre(
       'Pendiente',
     );
     if (!estadoPendiente) {
       throw new InternalServerErrorException(
-        'El estado por defecto "Pendiente" no se encuentra en la base de datos. Por favor, créelo en el panel de administración.',
+        'El estado por defecto "Pendiente" no se encuentra en la base de datos.',
       );
     }
-    // --- 👆 ---
+
+    // --- 🧠 LÓGICA DE AUTO-ASIGNACIÓN (CORREGIDA CON TIPOS) 🧠 ---
+    
+    // Aquí estaba el error: le decimos explícitamente qué tipos permitimos
+    let colaboradorAutoAsignado: Usuario | null = null; 
+    let statusInicial = 'Pendiente';
+    let fechaAsignacionInicial: Date | null = null;
+    
+    let targetUsername = '';
+
+    // 1. Definimos reglas
+    if (area === 'Impresion') {
+        targetUsername = 'Adrian'; 
+    } 
+    else if (area === 'Coordinacion Administrativa') {
+        targetUsername = 'Yubelis'; 
+    } 
+    else if (area === 'Redes y Web') {
+        targetUsername = 'Alondra'; 
+    }
+
+    // 2. Buscamos usuario
+    if (targetUsername) {
+      colaboradorAutoAsignado = await this.usuariosRepository.findOneBy({ username: targetUsername });
+      
+      if (colaboradorAutoAsignado) {
+         console.log(`✅ Auto-asignando proyecto de ${area} a ${targetUsername}`);
+         statusInicial = 'Iniciado'; 
+         fechaAsignacionInicial = new Date(); // Ahora sí permite guardar fecha
+      } else {
+         console.warn(`⚠️ Advertencia: Se intentó asignar a '${targetUsername}' pero no existe.`);
+      }
+    }
+    // ------------------------------------------------------------
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -63,8 +98,12 @@ export class PendientesService {
       const nuevoPendiente = this.pendientesRepository.create({
         nombreCentro,
         asesor: asesor,
-        // (La 'descripcion' a nivel de pendiente ya no se usa aquí)
+        area: area, 
+        colaboradorAsignado: colaboradorAutoAsignado, // TypeORM acepta null o Usuario
+        status: statusInicial,
+        fechaAsignacion: fechaAsignacionInicial // TypeORM acepta null o Date
       });
+      
       const pendienteGuardado = await queryRunner.manager.save(nuevoPendiente);
 
       for (const casoDto of casos) {
@@ -72,7 +111,7 @@ export class PendientesService {
           descripcion: casoDto.descripcion,
           imagenes: casoDto.imagenes,
           pendiente: pendienteGuardado,
-          estado: estadoPendiente, // <--- 4. ASIGNAR EL OBJETO ESTADO
+          estado: estadoPendiente,
         });
         await queryRunner.manager.save(nuevoCaso);
       }
@@ -97,46 +136,29 @@ export class PendientesService {
     }
   }
 
-  // ESTA FUNCIÓN AHORA ES SOLO PARA ADMINS
   async findAll() {
     return this.pendientesRepository.find({
-      // 'casos.estado' asegura que cargue el sub-objeto estado
       relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'], 
       order: { id: 'ASC' },
     });
   }
-// --- PEGA Y REEMPLAZA ESTAS DOS FUNCIONES ---
 
-  /**
-   * Busca proyectos para un Asesor específico (el creador).
-   */
   async findForAsesor(userId: number): Promise<Pendiente[]> {
-    // La línea de 'console.log' ha sido eliminada.
     return this.pendientesRepository.find({
-      where: {
-        asesor: { id: userId }, // Filtra por el ID del asesor
-      },
+      where: { asesor: { id: userId } },
       relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
       order: { id: 'ASC' },
     });
   }
 
-  /**
-   * Busca proyectos para un Colaborador específico (el asignado).
-   */
   async findForColaborador(userId: number): Promise<Pendiente[]> {
-    // La línea de 'console.log' ha sido eliminada.
     return this.pendientesRepository.find({
-      where: {
-        colaboradorAsignado: { id: userId }, // Filtra por el ID del colaborador
-      },
+      where: { colaboradorAsignado: { id: userId } },
       relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
       order: { id: 'ASC' },
     });
   }
 
-  // --- FIN DEL BLOQUE A REEMPLAZAR ---
-// ...
   findOne(id: number) {
     return this.pendientesRepository.findOne({
       where: { id },
@@ -144,22 +166,34 @@ export class PendientesService {
     });
   }
 
+  // --- ⭐ UPDATE CORREGIDO (LÓGICA AL FINAL) ⭐ ---
   async update(id: number, updatePendienteDto: UpdatePendienteDto) {
-    // Esta función solo actualiza el 'Pendiente' (asignación y estado general),
-    // no los 'Casos', por lo que no necesita cambios mayores.
-
     const { colaboradorAsignadoId, status } = updatePendienteDto;
+    
     const pendiente = await this.pendientesRepository.findOne({
       where: { id },
       relations: ['colaboradorAsignado'],
     });
+
     if (!pendiente) {
       throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
     }
+
+    // 1. Cambio manual (si existe)
+    if (status) {
+      if (status === 'Concluido' && pendiente.status !== 'Concluido') {
+        pendiente.fechaConclusion = new Date();
+      }
+      pendiente.status = status;
+    }
+
+    // 2. Cambio de Colaborador (Este manda sobre el status manual)
     if (colaboradorAsignadoId === undefined) {
+       // Nada
     } else if (colaboradorAsignadoId === null) {
       pendiente.colaboradorAsignado = null;
       pendiente.fechaAsignacion = null;
+      pendiente.status = 'Por Asignar';
     } else {
       const colaborador = await this.usuariosRepository.findOneBy({
         id: colaboradorAsignadoId,
@@ -170,18 +204,17 @@ export class PendientesService {
         );
       }
       pendiente.colaboradorAsignado = colaborador;
+      
       if (!pendiente.fechaAsignacion) {
         pendiente.fechaAsignacion = new Date();
       }
+
+      // Corrección: Aceptamos ambos estados iniciales
+      if (pendiente.status === 'Pendiente' || pendiente.status === 'Por Asignar') {
+        pendiente.status = 'Iniciado';
+      }
     }
 
-    // El 'status' (del Pendiente) sigue siendo un string, así que esto está bien.
-    if (status && status === 'Concluido' && pendiente.status !== 'Concluido') {
-      pendiente.fechaConclusion = new Date();
-    }
-    if (status) {
-      pendiente.status = status;
-    }
     return this.pendientesRepository.save(pendiente);
   }
 
