@@ -132,89 +132,92 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
 
-  // AQUÍ ABAJO DEBEN EMPEZAR TUS FUNCIONES (fetchPendientes, etc.)
-  // AQUÍ ABAJO DEBEN EMPEZAR TUS FUNCIONES (fetchPendientes, etc.)
-  // ================================================================
-  // ===== 🚀 FUNCIONES DE API (fetchPendientes, fetchUsers) 🚀 =====
-  // ================================================================
-  
-  // (Sin cambios aquí)
+  // (Versión corregida con Auto-Logout)
   const fetchPendientes = async (role: string) => {
     let endpointUrl = '';
 
-    // 1. Decidimos la URL de la API basándonos en el rol
+    // 1. Decidimos la URL (Tu lógica original se mantiene)
     switch (role) {
       case 'Administrador':
         endpointUrl = `${API_URL}/pendientes`;
         break;
       case 'Asesor':
-        // Esta ruta la crearemos en el backend
         endpointUrl = `${API_URL}/pendientes/mis-proyectos`;
         break;
       case 'Colaborador':
-         // Esta ruta también la crearemos en el backend
         endpointUrl = `${API_URL}/pendientes/mis-asignaciones`;
         break;
       default:
-        // Si el rol no es ninguno de esos, mostramos un error.
         console.warn('Rol de usuario no reconocido:', role);
-        setError('No tienes permisos para ver esta información.');
-        return; // No continuamos
+        return;
     }
 
-    // 2. El resto de la función es igual, pero usa la 'endpointUrl'
     try {
+      // Usamos authToken que es el nombre correcto en tu sistema
+      const token = localStorage.getItem('authToken');
+      
       const response = await fetch(endpointUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // 👇 AQUÍ ESTÁ LA MAGIA DE SEGURIDAD 👇
+      if (response.status === 401) {
+        localStorage.removeItem('authToken'); // Borramos la llave vieja
+        window.location.href = '/login';      // Te mandamos a la puerta
+        return;
+      }
+      // -------------------------------------
+
       if (!response.ok) {
-         // (Mejora: intentar leer el mensaje de error de la API)
          const errorData = await response.json().catch(() => ({}));
          throw new Error(errorData.message || 'No se pudo obtener la lista de proyectos.');
       }
+      
       const data = await response.json();
       setPendientes(data);
+      // Si usas filtrado, asegúrate de actualizarlo también
+      // setPendientesFiltrados(data); 
+
     } catch (err: any) {
-      setError(err.message);
+      console.error(err);
+      // Opcional: No mostrar error si fue por redirección
     }
   };
-// --- 👆 ---
   const fetchUsers = async () => {
     try {
+      const token = localStorage.getItem('authToken'); // Nombre correcto
+      
       const res = await fetch(`${API_URL}/usuarios`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // 👇 AQUÍ ESTÁ LA MAGIA TAMBIÉN 👇
+      if (res.status === 401) {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+        return;
+      }
+      // -------------------------------
+
       if (!res.ok) {
         const errorData = await res.json();
         console.warn('Advertencia al cargar usuarios:', errorData.message);
         return;
       }
+
       const usersData = await res.json();
       setAllUsers(usersData);
+      
+      // Tu lógica de filtro original
       const collabUsers = usersData.filter(
         (user: Usuario) => user.rol === 'Colaborador',
       );
       setColaboradores(collabUsers);
+
     } catch (err: any) {
-      setError(err.message);
+      console.error(err.message);
     }
-  };
-
-  // --- useEffect Principal (Sin cambios) ---
-  useEffect(() => {
-  try {
-    const decodedToken: DecodedToken = jwtDecode(token);
-    setUserRole(decodedToken.rol);
-    fetchPendientes(decodedToken.rol);
-
-    if (decodedToken.rol === 'Administrador') {
-      fetchUsers();
-    }
-  } catch (error) {
-    console.error('Error decodificando el token:', error);
-    setError('El token no es válido.');
-  }
-}, [token]);
+  }; [token]);
 
   // ================================================================
   // ===== 🚀 LÓGICA DEL NUEVO FORMULARIO DE CREACIÓN 🚀 =====
