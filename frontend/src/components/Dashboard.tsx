@@ -86,6 +86,7 @@ interface NewCasoState {
 function Dashboard({ token, setView }: DashboardProps) {
   // 1. Estados Generales
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
+  const [pendientesFiltrados, setPendientesFiltrados] = useState<Pendiente[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
