@@ -572,7 +572,6 @@ const getResumenEstadoProyecto = (
 
   const handleOpenUpdateModal = (pendiente: Pendiente) => {
     setEditingPendiente(pendiente);
-    setSelectedStatus(pendiente.status);
     setSelectedColaboradorId(
       pendiente.colaboradorAsignado?.id.toString() || '',
     );
@@ -623,7 +622,7 @@ const getResumenEstadoProyecto = (
       setEditingPendiente(null); // 1. Cerramos la ventana
       
       // 2. Recargamos la tabla de afuera inmediatamente
-      await fetchPendientes(userRole); 
+      await fetchPendientes(userRole || ''); 
 
     } catch (error) {
       console.error(error);
