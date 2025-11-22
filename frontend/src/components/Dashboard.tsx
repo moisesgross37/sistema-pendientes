@@ -1417,69 +1417,59 @@ const handleDeletePendiente = async () => {
     </Modal.Footer>
   </Form>
 </Modal>
-
-      {/* ================================================================ */}
-      {/* ===== 🚀 PESTAÑAS Y TABLAS (CORREGIDO) 🚀 ===== */}
-      {/* ================================================================ */}
-
-      {/* --- 👇 INICIO DEL CAMBIO (Paso 26.2.1) --- */}
-
 {/* Esta Tarjeta envolverá toda la sección de Pestañas */}
-<Card className="mb-4 shadow-sm">
-  <Card.Body>
-    <Card.Title as="h3">Lista de Proyectos Activos</Card.Title>
-    
-    {/* --- INICIO DE LA CORRECCIÓN DEFINITIVA V3 --- */}
-    {/* Envolvemos toda la lógica en una función que se ejecuta sola: {(() => { ... })()}
-      Esto nos permite usar 'const', 'if' y 'map' de forma segura DENTRO del JSX.
-    */}
-    {(() => {
-      
-      // 1. Construimos el array de pestañas del admin
-      const adminTabs: React.ReactNode[] = [];
-      
-      if (userRole === 'Administrador') {
-        
-        // Pestaña "Sin Asignar"
-        adminTabs.push(
-          <Tab
-            key="sin-asignar"
-            eventKey="sin-asignar"
-            title={
-              <>
-                Sin Asignar (
-                {pendientesActivos.filter((p) => !p.colaboradorAsignado).length})
-              </>
-            }
-          >
-            {renderPendientesTable(
-              pendientesActivos.filter((p) => !p.colaboradorAsignado),
-            )}
-          </Tab>
-        );
+      <Card className="mb-4 shadow-sm">
+        <Card.Body>
+          <Card.Title as="h3">Lista de Proyectos Activos</Card.Title>
+          
+          {/* --- INICIO DE LA CORRECCIÓN DEFINITIVA --- */}
+          {(() => {
+            
+            // 1. Construimos el array de pestañas del admin
+            const adminTabs: React.ReactNode[] = [];
+            
+            if (userRole === 'Administrador') {
+              
+              // Pestaña "Sin Asignar"
+              // CAMBIO 1: Usamos 'pendientesFiltrados' aquí
+              adminTabs.push(
+                <Tab
+                  key="sin-asignar"
+                  eventKey="sin-asignar"
+                  title={
+                    <>
+                      Sin Asignar (
+                      {pendientesFiltrados.filter((p) => !p.colaboradorAsignado).length})
+                    </>
+                  }
+                >
+                  {renderPendientesTable(
+                    pendientesFiltrados.filter((p) => !p.colaboradorAsignado),
+                  )}
+                </Tab>
+              );
 
-        // Pestañas dinámicas para cada Colaborador
-        colaboradores.map((colab) => {
-          const pendientesDelColab = pendientesActivos.filter(
-            (p) => p.colaboradorAsignado?.id === colab.id,
-          );
-          adminTabs.push(
-            <Tab
-              key={colab.id}
-              eventKey={colab.id.toString()}
-              title={
-                <>
-                  {colab.username} ({pendientesDelColab.length})
-                </>
-              }
-            >
-              {renderPendientesTable(pendientesDelColab)}
-            </Tab>
-          );
-        });
-      }
-
-      // 2. Ahora retornamos el componente <Tabs> completo
+              // Pestañas dinámicas para cada Colaborador
+              colaboradores.map((colab) => {
+                // CAMBIO 2: Usamos 'pendientesFiltrados' aquí también
+                const pendientesDelColab = pendientesFiltrados.filter(
+                  (p) => p.colaboradorAsignado?.id === colab.id,
+                );
+                adminTabs.push(
+                  <Tab
+                    key={colab.id}
+                    eventKey={colab.id.toString()}
+                    title={
+                      <>
+                        {colab.username} ({pendientesDelColab.length})
+                      </>
+                    }
+                  >
+                    {renderPendientesTable(pendientesDelColab)}
+                  </Tab>
+                );
+              });
+            }      // 2. Ahora retornamos el componente <Tabs> completo
       return (
         <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
           
