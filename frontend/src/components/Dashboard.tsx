@@ -130,7 +130,6 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [viewingImages, setViewingImages] = useState<string[] | null>(null);
   const [viewingProyecto, setViewingProyecto] = useState<Pendiente | null>(null);
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
-  const [estadosCaso, setEstadosCaso] = useState<EstadoCaso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
 
   // AQUÍ ABAJO DEBEN EMPEZAR TUS FUNCIONES (fetchPendientes, etc.)
@@ -733,43 +732,6 @@ const handleDeletePendiente = async () => {
   const pendientesConcluidos = filteredPendientes.filter(
     (p) => p.status === 'Concluido',
   );
-
-  const performanceData = pendientesActivos
-    .filter((p) => p.colaboradorAsignado)
-    .reduce(
-      (acc, p) => {
-        const colaborador = p.colaboradorAsignado!;
-        if (!acc[colaborador.id]) {
-          acc[colaborador.id] = {
-            username: colaborador.username,
-            normal: 0,
-            urgente: 0,
-            critico: 0,
-            total: 0,
-          };
-        }
-        const fechaCreacion = new Date(p.fechaCreacion);
-        const hoy = new Date();
-        const diffTiempo = hoy.getTime() - fechaCreacion.getTime();
-        const diffDias = Math.ceil(diffTiempo / (1000 * 3600 * 24));
-        if (diffDias >= 10) acc[colaborador.id].critico++;
-        else if (diffDias >= 5) acc[colaborador.id].urgente++;
-        else acc[colaborador.id].normal++;
-        acc[colaborador.id].total++;
-        return acc;
-      },
-      {} as Record<
-        string,
-        {
-          username: string;
-          normal: number;
-          urgente: number;
-          critico: number;
-          total: number;
-        }
-      >,
-    );
-
   // ================================================================
   // ===== 🚀 FUNCIÓN DE RENDERIZADO DE TABLA (ACTUALIZADA) 🚀 =====
   // ================================================================
