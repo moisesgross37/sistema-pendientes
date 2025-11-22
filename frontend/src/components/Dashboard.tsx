@@ -132,11 +132,12 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
 
-  // (Versión corregida con Auto-Logout)
+  // ==============================================================
+  // 1. FUNCIÓN FETCH PENDIENTES (Con Auto-Logout)
+  // ==============================================================
   const fetchPendientes = async (role: string) => {
     let endpointUrl = '';
 
-    // 1. Decidimos la URL (Tu lógica original se mantiene)
     switch (role) {
       case 'Administrador':
         endpointUrl = `${API_URL}/pendientes`;
@@ -148,67 +149,70 @@ function Dashboard({ token, setView }: DashboardProps) {
         endpointUrl = `${API_URL}/pendientes/mis-asignaciones`;
         break;
       default:
-        console.warn('Rol de usuario no reconocido:', role);
+        // Si no hay rol claro, no hacemos fetch
         return;
     }
 
     try {
-      // Usamos authToken que es el nombre correcto en tu sistema
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken'); // Usamos authToken
       
+      // Si no hay token, no intentamos fetch, el useEffect lo manejará
+      if (!token) return; 
+
       const response = await fetch(endpointUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // 👇 AQUÍ ESTÁ LA MAGIA DE SEGURIDAD 👇
+      // 🛡️ SEGURIDAD: Si el token venció, expulsar
       if (response.status === 401) {
-        localStorage.removeItem('authToken'); // Borramos la llave vieja
-        window.location.href = '/login';      // Te mandamos a la puerta
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
         return;
       }
-      // -------------------------------------
 
       if (!response.ok) {
          const errorData = await response.json().catch(() => ({}));
-         throw new Error(errorData.message || 'No se pudo obtener la lista de proyectos.');
+         throw new Error(errorData.message || 'No se pudo obtener la lista.');
       }
       
       const data = await response.json();
       setPendientes(data);
-      // Si usas filtrado, asegúrate de actualizarlo también
-      // setPendientesFiltrados(data); 
+      // Si usas filtros, actualízalos también:
+      setPendientesFiltrados(data); 
 
     } catch (err: any) {
       console.error(err);
-      // Opcional: No mostrar error si fue por redirección
+      // Opcional: setError(err.message);
     }
   };
+
+  // ==============================================================
+  // 2. FUNCIÓN FETCH USERS (Con Auto-Logout)
+  // ==============================================================
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('authToken'); // Nombre correcto
-      
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
       const res = await fetch(`${API_URL}/usuarios`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // 👇 AQUÍ ESTÁ LA MAGIA TAMBIÉN 👇
+      // 🛡️ SEGURIDAD: Si el token venció, expulsar
       if (res.status === 401) {
         localStorage.removeItem('authToken');
         window.location.href = '/login';
         return;
       }
-      // -------------------------------
 
       if (!res.ok) {
-        const errorData = await res.json();
-        console.warn('Advertencia al cargar usuarios:', errorData.message);
+        console.warn('No se pudieron cargar usuarios');
         return;
       }
 
       const usersData = await res.json();
       setAllUsers(usersData);
       
-      // Tu lógica de filtro original
       const collabUsers = usersData.filter(
         (user: Usuario) => user.rol === 'Colaborador',
       );
@@ -217,8 +221,39 @@ function Dashboard({ token, setView }: DashboardProps) {
     } catch (err: any) {
       console.error(err.message);
     }
-  }; [token]);
+  };
 
+  // ==============================================================
+  // 3. USE EFFECT PRINCIPAL (Carga Inicial)
+  // ==============================================================
+  useEffect(() => {
+    const token = localStorage.getItem('authToken'); // Nombre correcto
+
+    if (token) {
+      try {
+        const decodedToken: DecodedToken = jwtDecode(token);
+        setUserRole(decodedToken.rol);
+        
+        // Llamamos a las funciones
+        // Usamos || '' para evitar el error de TypeScript (string | null)
+        fetchPendientes(decodedToken.rol || '');
+
+        if (decodedToken.rol === 'Administrador') {
+          fetchUsers();
+        }
+      } catch (error) {
+        console.error('Error decodificando token:', error);
+        // Si el token es basura, limpiar y salir
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+      }
+    } else {
+      // Si no hay token al entrar, ir al login
+      // (Opcional: Depende de si es ruta pública o privada)
+      // window.location.href = '/login';
+    }
+  }, []); 
+  // ==============================================================
   // ================================================================
   // ===== 🚀 LÓGICA DEL NUEVO FORMULARIO DE CREACIÓN 🚀 =====
   // ================================================================
