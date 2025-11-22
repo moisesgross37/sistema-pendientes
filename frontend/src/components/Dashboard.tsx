@@ -178,29 +178,6 @@ function Dashboard({ token, setView }: DashboardProps) {
       setError(err.message);
     }
   };
-// Esta función carga la lista de estados (Pendiente, Detenido, etc.)
-const fetchEstadosCaso = async () => {
-  try {
-    const res = await fetch(`${API_URL}/estados-casos`, {
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Cache-Control': 'no-store', // <--- AÑADIDO
-      },
-      cache: 'no-store', // <--- AÑADIDO
-    });
-    if (!res.ok) {
-      throw new Error('No se pudo cargar la lista de estados.');
-    }
-    const data = await res.json();
-    setEstadosCaso(data); // <-- 1. Guarda los estados en nuestro nuevo 'useState'
-  } catch (err: any) {
-    // Esto no es un error que deba detener la app,
-    // solo lo mostramos en la consola.
-    console.error('Error al cargar estados de caso:', err.message);
-    // Podríamos poner un setError aquí si fuera crítico
-    // setError(err.message); 
-  }
-};
 // --- 👆 ---
   const fetchUsers = async () => {
     try {
@@ -229,7 +206,6 @@ const fetchEstadosCaso = async () => {
     const decodedToken: DecodedToken = jwtDecode(token);
     setUserRole(decodedToken.rol);
     fetchPendientes(decodedToken.rol);
-    fetchEstadosCaso(); // <--- ¡AQUÍ ESTÁ LA LÍNEA AÑADIDA!
 
     if (decodedToken.rol === 'Administrador') {
       fetchUsers();
