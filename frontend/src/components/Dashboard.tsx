@@ -1416,49 +1416,31 @@ const handleDeletePendiente = async () => {
       </Button>
     </Modal.Footer>
   </Form>
-</Modal>
-{/* ================================================================ */}
+</Modal>{/* ================================================================ */}
       {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (CON FILTRO VISUAL) 📋 ===== */}
       {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
           <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
           
-          {/* Aquí inicia la lógica de las pestañas */}
+          {/* Lógica de Pestañas y Filtros */}
           {(() => {
             
-            {/* ================================================================ */}
-      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (CON FILTRO VISUAL) 📋 ===== */}
-      {/* ================================================================ */}
-      <Card className="mb-4 shadow-sm">
-        <Card.Body>
-          <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
-          
-          {/* Aquí inicia la lógica de las pestañas */}
-          {(() => {
-            
-            // 👇 CORRECCIÓN AQUÍ: Recuperamos el usuario manualmente para evitar el error
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            // 👆 --------------------------------------------------------
+            // 1. Recuperamos el usuario de forma segura
+            // (Usamos 'any' temporalmente para evitar que TypeScript se queje si la interfaz Usuario no coincide)
+            const userString = localStorage.getItem('user');
+            const user = userString ? JSON.parse(userString) : { id: 0, rol: '' };
 
-            // -----------------------------------------------------------
-            // 🛡️ FILTRO MAESTRO: VISUALIZACIÓN
-            // -----------------------------------------------------------
-            
+            // 2. FILTRO VISUAL MAESTRO
             const dataParaLaTabla = (userRole === 'Colaborador')
-                // Si es Colaborador: Solo ve lo suyo
                 ? pendientesActivos.filter(p => p.colaboradorAsignado?.id === user.id)
-                // Si es Admin/Asesor: Ve todo
                 : pendientesActivos;
 
-            // -----------------------------------------------------------
-
-            // Construcción de pestañas EXTRA (Solo para Admin)
+            // 3. Pestañas para Administrador
             const adminTabs = [];
             
             if (userRole === 'Administrador') {
-              
-              // Pestaña 1: Sin Asignar
+              // Pestaña: Sin Asignar
               const sinAsignar = pendientesFiltrados.filter((p) => !p.colaboradorAsignado);
               
               adminTabs.push(
@@ -1471,7 +1453,7 @@ const handleDeletePendiente = async () => {
                 </Tab>
               );
 
-              // Pestañas dinámicas: Una por cada Colaborador
+              // Pestañas: Por Colaborador
               colaboradores.forEach((colab) => {
                 const pendientesDelColab = pendientesFiltrados.filter(
                   (p) => p.colaboradorAsignado?.id === colab.id,
@@ -1489,11 +1471,11 @@ const handleDeletePendiente = async () => {
               });
             }
 
-            // Renderizamos el componente final de Tabs
+            // 4. Render final de las pestañas
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
-                {/* Pestaña PRINCIPAL ("Todos" o "Mis Proyectos") */}
+                {/* Pestaña Principal */}
                 <Tab
                   eventKey="todos"
                   title={
@@ -1507,19 +1489,20 @@ const handleDeletePendiente = async () => {
                     </>
                   }
                 >
-                  {/* Aquí pasamos la lista FILTRADA VISUALMENTE */}
                   {renderPendientesTable(
                     dataParaLaTabla,
-                    userRole === 'Administrador', 
+                    userRole === 'Administrador'
                   )}
                 </Tab>
 
-                {/* Insertamos las pestañas de admin (si existen) */}
+                {/* Pestañas Extra (Admin) */}
                 {adminTabs}
                 
               </Tabs>
             );
-          })()}
+          })()} 
+          {/* Cierre de la lógica */}
+
         </Card.Body>
       </Card>
 {/* ================================================================ */}
