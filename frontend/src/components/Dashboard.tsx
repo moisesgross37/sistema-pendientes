@@ -1417,90 +1417,99 @@ const handleDeletePendiente = async () => {
     </Modal.Footer>
   </Form>
 </Modal>
-{/* Esta Tarjeta envolverá toda la sección de Pestañas */}
+{/* ================================================================ */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (CON FILTRO VISUAL) 📋 ===== */}
+      {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
-          <Card.Title as="h3">Lista de Proyectos Activos</Card.Title>
+          <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
           
-          {/* --- INICIO DE LA CORRECCIÓN DEFINITIVA --- */}
+          {/* Aquí inicia la lógica de las pestañas */}
           {(() => {
             
-            // 1. Construimos el array de pestañas del admin
-            const adminTabs: React.ReactNode[] = [];
+            // -----------------------------------------------------------
+            // 🛡️ FILTRO MAESTRO: VISUALIZACIÓN
+            // El Backend ahora manda TODO (para el ranking), pero aquí
+            // decidimos qué mostramos en la lista de tareas.
+            // -----------------------------------------------------------
+            
+            const dataParaLaTabla = (userRole === 'Colaborador')
+                // Si es Colaborador: Solo ve lo suyo (aunque tenga la data de todos en memoria)
+                ? pendientesActivos.filter(p => p.colaboradorAsignado?.id === user.id)
+                // Si es Admin/Asesor: Ve todo
+                : pendientesActivos;
+
+            // -----------------------------------------------------------
+
+            // Construcción de pestañas EXTRA (Solo para Admin)
+            const adminTabs = [];
             
             if (userRole === 'Administrador') {
               
-              // Pestaña "Sin Asignar"
-              // CAMBIO 1: Usamos 'pendientesFiltrados' aquí
+              // Pestaña 1: Sin Asignar
+              const sinAsignar = pendientesFiltrados.filter((p) => !p.colaboradorAsignado);
+              
               adminTabs.push(
                 <Tab
                   key="sin-asignar"
                   eventKey="sin-asignar"
-                  title={
-                    <>
-                      Sin Asignar (
-                      {pendientesFiltrados.filter((p) => !p.colaboradorAsignado).length})
-                    </>
-                  }
+                  title={`Sin Asignar (${sinAsignar.length})`}
                 >
-                  {renderPendientesTable(
-                    pendientesFiltrados.filter((p) => !p.colaboradorAsignado),
-                  )}
+                  {renderPendientesTable(sinAsignar)}
                 </Tab>
               );
 
-              // Pestañas dinámicas para cada Colaborador
-              colaboradores.map((colab) => {
-                // CAMBIO 2: Usamos 'pendientesFiltrados' aquí también
+              // Pestañas dinámicas: Una por cada Colaborador
+              colaboradores.forEach((colab) => {
                 const pendientesDelColab = pendientesFiltrados.filter(
                   (p) => p.colaboradorAsignado?.id === colab.id,
                 );
+                
                 adminTabs.push(
                   <Tab
                     key={colab.id}
                     eventKey={colab.id.toString()}
-                    title={
-                      <>
-                        {colab.username} ({pendientesDelColab.length})
-                      </>
-                    }
+                    title={`${colab.username} (${pendientesDelColab.length})`}
                   >
                     {renderPendientesTable(pendientesDelColab)}
                   </Tab>
                 );
               });
-            }      // 2. Ahora retornamos el componente <Tabs> completo
-      return (
-        <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
-          
-          {/* Pestaña "Todos" (Esta ya estaba bien) */}
-          <Tab
-            eventKey="todos"
-            title={
-              <>
-                <strong>
-                  {userRole === 'Administrador' ? 'Todos' : 'Mis Proyectos'}
-                </strong> ({pendientesActivos.length})
-              </>
             }
-          >
-            {renderPendientesTable(
-              pendientesActivos,
-              userRole === 'Administrador',
-            )}
-          </Tab>
 
-          {/* Aquí simplemente renderizamos el array que construimos */}
-          {/* React pondrá las pestañas aquí (si hay) o no pondrá nada */}
-          {adminTabs}
-          
-        </Tabs>
-      );
-    })()}
-    {/* --- FIN DE LA CORRECCIÓN DEFINITIVA V3 --- */}
+            // Renderizamos el componente final de Tabs
+            return (
+              <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
+                
+                {/* Pestaña PRINCIPAL ("Todos" o "Mis Proyectos") */}
+                <Tab
+                  eventKey="todos"
+                  title={
+                    <>
+                      <strong>
+                        {userRole === 'Administrador' ? 'Todos los Activos' : 'Mis Proyectos'}
+                      </strong> 
+                      <span className="ms-2 badge bg-primary bg-opacity-10 text-primary rounded-pill border border-primary border-opacity-25">
+                        {dataParaLaTabla.length}
+                      </span>
+                    </>
+                  }
+                >
+                  {/* Aquí pasamos la lista FILTRADA VISUALMENTE */}
+                  {renderPendientesTable(
+                    dataParaLaTabla,
+                    userRole === 'Administrador', // Solo admin ve controles extra
+                  )}
+                </Tab>
 
-  </Card.Body>
-</Card>
+                {/* Insertamos las pestañas de admin (si existen) */}
+                {adminTabs}
+                
+              </Tabs>
+            );
+          })()}
+        </Card.Body>
+      </Card>
 {/* ================================================================ */}
 {/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
 {/* ================================================================ */}
