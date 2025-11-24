@@ -1418,18 +1418,20 @@ const handleDeletePendiente = async () => {
   </Form>
 </Modal>
 {/* ================================================================ */}
-      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Lógica Final) 📋 ===== */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Corrección TypeScript) 📋 ===== */}
       {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
           <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
           
-          {/* Lógica de Pestañas: DEMOCRÁTICA (Todos ven lo mismo) Y LIMPIA (Solo Activos) */}
+          {/* Lógica de Pestañas */}
           {(() => {
             
-            // 1. REGLA DE ORO: FILTRO MAESTRO "ANTI-CONCLUIDOS"
-            // Sacamos TODO lo que diga "Concluido".
-            const activosReales = pendientesActivos.filter(p => p.status !== 'Concluido');
+            // 👇 AQUÍ ESTÁ EL ARREGLO DEL ERROR TS6133 👇
+            // Usamos 'pendientesFiltrados' en vez de 'pendientesActivos'.
+            // 1. Esto elimina el error porque ahora sí "leemos" la variable.
+            // 2. Hace que los filtros de arriba (Asesor/Fecha) funcionen en las pestañas.
+            const activosReales = pendientesFiltrados.filter(p => p.status !== 'Concluido');
 
             // 2. GENERACIÓN DE PESTAÑAS (PARA TODOS)
             const userTabs = [];
@@ -1472,7 +1474,7 @@ const handleDeletePendiente = async () => {
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
-                {/* Pestaña Principal: "Todos los Activos" */}
+                {/* Pestaña Principal */}
                 <Tab
                   eventKey="todos"
                   title={
@@ -1497,8 +1499,7 @@ const handleDeletePendiente = async () => {
             );
           })()} 
         </Card.Body>
-      </Card> 
-      {/* 👆 ¡ESTE ES EL CIERRE QUE TE FALTABA! */}
+      </Card>
 {/* ================================================================ */}
 {/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
 {/* ================================================================ */}
