@@ -1427,14 +1427,26 @@ const handleDeletePendiente = async () => {
           {/* Aquí inicia la lógica de las pestañas */}
           {(() => {
             
+            {/* ================================================================ */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (CON FILTRO VISUAL) 📋 ===== */}
+      {/* ================================================================ */}
+      <Card className="mb-4 shadow-sm">
+        <Card.Body>
+          <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
+          
+          {/* Aquí inicia la lógica de las pestañas */}
+          {(() => {
+            
+            // 👇 CORRECCIÓN AQUÍ: Recuperamos el usuario manualmente para evitar el error
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            // 👆 --------------------------------------------------------
+
             // -----------------------------------------------------------
             // 🛡️ FILTRO MAESTRO: VISUALIZACIÓN
-            // El Backend ahora manda TODO (para el ranking), pero aquí
-            // decidimos qué mostramos en la lista de tareas.
             // -----------------------------------------------------------
             
             const dataParaLaTabla = (userRole === 'Colaborador')
-                // Si es Colaborador: Solo ve lo suyo (aunque tenga la data de todos en memoria)
+                // Si es Colaborador: Solo ve lo suyo
                 ? pendientesActivos.filter(p => p.colaboradorAsignado?.id === user.id)
                 // Si es Admin/Asesor: Ve todo
                 : pendientesActivos;
@@ -1498,7 +1510,7 @@ const handleDeletePendiente = async () => {
                   {/* Aquí pasamos la lista FILTRADA VISUALMENTE */}
                   {renderPendientesTable(
                     dataParaLaTabla,
-                    userRole === 'Administrador', // Solo admin ve controles extra
+                    userRole === 'Administrador', 
                   )}
                 </Tab>
 
