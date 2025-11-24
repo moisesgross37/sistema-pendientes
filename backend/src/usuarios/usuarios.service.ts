@@ -101,8 +101,11 @@ export class UsuariosService implements OnModuleInit { // <--- 3. IMPLEMENTAR HO
   }
 
   async findOneByUsername(username: string): Promise<Usuario | null> {
-    return this.usuariosRepository.findOne({ where: { username } });
-  }
+  // Usamos QueryBuilder para comparar ambos lados en minúsculas (LOWER)
+  return this.usuariosRepository.createQueryBuilder('usuario')
+    .where('LOWER(usuario.username) = LOWER(:username)', { username })
+    .getOne();
+}
 
   async updateRol(id: number, updateRolDto: UpdateRolDto) {
     const { rol } = updateRolDto;

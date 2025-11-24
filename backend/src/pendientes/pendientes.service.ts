@@ -153,13 +153,23 @@ export class PendientesService {
     });
   }
 
+  // --- 👇 MODIFICACIÓN PARA ACTIVAR RANKING GLOBAL 👇 ---
   async findForColaborador(userId: number): Promise<Pendiente[]> {
+    // ANTES: return this.pendientesRepository.find({ where: { colaboradorAsignado: { id: userId } }, ... });
+    
+    // AHORA: Retornamos TODOS los pendientes (sin filtrar por ID)
+    // Esto permite que el componente "Competencia del Mes" tenga datos de todos los compañeros.
+    // NOTA: El Frontend debe encargarse de bloquear el botón "Editar" en los proyectos que no sean del usuario.
+    
     return this.pendientesRepository.find({
-      where: { colaboradorAsignado: { id: userId } },
+      // 🚫 COMENTAMOS EL FILTRO:
+      // where: { colaboradorAsignado: { id: userId } }, 
+      
       relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
       order: { id: 'ASC' },
     });
   }
+  // --- 👆 FIN DE LA MODIFICACIÓN 👆 ---
 
   findOne(id: number) {
     return this.pendientesRepository.findOne({
