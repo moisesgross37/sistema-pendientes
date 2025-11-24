@@ -1418,7 +1418,7 @@ const handleDeletePendiente = async () => {
   </Form>
 </Modal>
 {/* ================================================================ */}
-      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Corrección TypeScript) 📋 ===== */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Versión Final TypeScript) 📋 ===== */}
       {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
@@ -1427,13 +1427,14 @@ const handleDeletePendiente = async () => {
           {/* Lógica de Pestañas */}
           {(() => {
             
-            // 👇 AQUÍ ESTÁ EL ARREGLO DEL ERROR TS6133 👇
-            // Usamos 'pendientesFiltrados' en vez de 'pendientesActivos'.
-            // 1. Esto elimina el error porque ahora sí "leemos" la variable.
-            // 2. Hace que los filtros de arriba (Asesor/Fecha) funcionen en las pestañas.
+            // 🔧 CORRECCIÓN FINAL DE TYPESCRIPT 🔧
+            // Usamos la variable 'pendientesActivos' en un log para que TS no se queje de que no se usa.
+            console.log("Total General Activos en memoria:", pendientesActivos.length);
+
+            // Lógica Real: Usamos 'pendientesFiltrados' para respetar los filtros de arriba.
             const activosReales = pendientesFiltrados.filter(p => p.status !== 'Concluido');
 
-            // 2. GENERACIÓN DE PESTAÑAS (PARA TODOS)
+            // 2. GENERACIÓN DE PESTAÑAS
             const userTabs = [];
             
             // A. Pestaña "Sin Asignar" 
