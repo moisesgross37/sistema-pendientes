@@ -1425,31 +1425,36 @@ const handleDeletePendiente = async () => {
           
           {/* Lógica de Pestañas y Filtros */}
           {(() => {
-            // 1. Recuperamos el usuario
+            
+            // 1. Recuperamos el usuario (y aseguramos que no sea null)
             const userString = localStorage.getItem('user');
-            const user = userString ? JSON.parse(userString) : { id: 0, rol: '', username: '' };
+            // Si no hay usuario, creamos un objeto vacío para que no rompa
+            const user = userString ? JSON.parse(userString) : {}; 
 
-            // 🔍 DEBUGGING: Esto mostrará datos en la consola (F12) para saber qué pasa
-            // Si la lista sigue vacía, envíame una foto de lo que sale en la consola ("Console").
-            console.log("--- DEBUG DASHBOARD ---");
-            console.log("Usuario Local:", user);
-            console.log("Proyectos Activos Totales:", pendientesActivos.length);
-            if(pendientesActivos.length > 0) {
-               console.log("Ejemplo de Proyecto:", pendientesActivos[0]);
-               console.log("Ejemplo Asignado A:", pendientesActivos[0].colaboradorAsignado);
-            }
-
-            // 2. FILTRO VISUAL "A PRUEBA DE FALLOS"
+            // 2. FILTRO "TODOTERRENO" (ID, SUB o NOMBRE)
             const dataParaLaTabla = (userRole === 'Colaborador')
                 ? pendientesActivos.filter(p => {
-                    // Verificación 1: Coincidencia de ID (Flexible, ignora texto vs numero)
-                    // eslint-disable-next-line eqeqeq
-                    const coincideID = p.colaboradorAsignado?.id == user.id;
-                    
-                    // Verificación 2: Coincidencia de Nombre (Respaldo por si el ID falla)
-                    const coincideNombre = p.colaboradorAsignado?.username === user.username;
-                    
-                    // Si cualquiera de los dos es verdad, mostramos el proyecto
+                    // Validamos que el proyecto tenga un colaborador asignado
+                    if (!p.colaboradorAsignado) return false;
+
+                    // --- A. PREPARAMOS LOS DATOS DEL PROYECTO ---
+                    const pId = String(p.colaboradorAsignado.id);
+                    const pNombre = (p.colaboradorAsignado.username || '').toLowerCase().trim();
+
+                    // --- B. PREPARAMOS LOS DATOS DEL USUARIO LOGUEADO ---
+                    // A veces el ID viene como 'id' y a veces como 'sub' (en JWT)
+                    const uId = String(user.id || user.sub || ''); 
+                    const uNombre = (user.username || '').toLowerCase().trim();
+
+                    // --- C. LAS COMPARACIONES (Cualquiera sirve) ---
+                    const coincideID = (uId !== '' && pId === uId);
+                    const coincideNombre = (uNombre !== '' && pNombre === uNombre);
+
+                    // Debug visual en consola por si acaso
+                    if (p.id === 1) { // Solo imprimimos el primero para no saturar
+                        console.log("Comparando:", { pId, pNombre }, "con", { uId, uNombre });
+                    }
+
                     return coincideID || coincideNombre;
                 })
                 : pendientesActivos;
@@ -1514,9 +1519,7 @@ const handleDeletePendiente = async () => {
                 
               </Tabs>
             );
-          })()} 
-          {/* Cierre de la lógica */}
-
+          })()}
         </Card.Body>
       </Card>
 {/* ================================================================ */}
