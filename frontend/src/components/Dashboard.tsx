@@ -225,35 +225,33 @@ function Dashboard({ token, setView }: DashboardProps) {
   };
 
   // ==============================================================
-  // 3. USE EFFECT PRINCIPAL (Carga Inicial)
+  // 3. USE EFFECT PRINCIPAL (Carga Inicial Corregida)
   // ==============================================================
   useEffect(() => {
-    const token = localStorage.getItem('authToken'); // Nombre correcto
+    const token = localStorage.getItem('authToken'); 
 
     if (token) {
       try {
         const decodedToken: DecodedToken = jwtDecode(token);
         setUserRole(decodedToken.rol);
         
-        // Llamamos a las funciones
-        // Usamos || '' para evitar el error de TypeScript (string | null)
+        // 1. Cargar Pendientes (Según el rol)
         fetchPendientes(decodedToken.rol || '');
 
-        if (decodedToken.rol === 'Administrador') {
-          fetchUsers();
-        }
+        // 2. Cargar Usuarios (PARA TODOS)
+        // 👇 CAMBIO AQUÍ: Quitamos el 'if (admin)' para que Rashell vea las pestañas
+        fetchUsers(); 
+        // 👆 Ahora todos pueden ver la lista de colaboradores para filtrar
+
       } catch (error) {
         console.error('Error decodificando token:', error);
-        // Si el token es basura, limpiar y salir
         localStorage.removeItem('authToken');
         window.location.href = '/login';
       }
-    } else {
-      // Si no hay token al entrar, ir al login
-      // (Opcional: Depende de si es ruta pública o privada)
-      // window.location.href = '/login';
-    }
-  }, []); 
+    } 
+    // Nota: Si no hay token, simplemente no carga nada (o redirige si activas la linea de abajo)
+    // else { window.location.href = '/login'; }
+  }, []);
   // ==============================================================
   // ================================================================
   // ===== 🚀 LÓGICA DEL NUEVO FORMULARIO DE CREACIÓN 🚀 =====
