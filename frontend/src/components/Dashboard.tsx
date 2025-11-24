@@ -1423,78 +1423,90 @@ const handleDeletePendiente = async () => {
         <Card.Body>
           <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
           
-          {/* Lógica de Pestañas SIN FILTROS (Modo Transparencia Total) */}
+          {/* Lógica de Pestañas: DEMOCRÁTICA (Todos ven lo mismo) Y LIMPIA (Solo Activos) */}
           {(() => {
             
-            // 1. SIN FILTROS COMPLEJOS.
-            // Si el backend manda 100 proyectos, mostramos 100 proyectos.
-            // Esto asegura que Rashell vea sus tareas sí o sí.
-            const dataParaLaTabla = pendientesActivos;
+            // ---------------------------------------------------------------
+            // 1. REGLA DE ORO: FILTRO MAESTRO "ANTI-CONCLUIDOS"
+            // ---------------------------------------------------------------
+            // Tomamos la lista completa y sacamos TODO lo que diga "Concluido".
+            // Esta variable 'activosReales' será la fuente para TODAS las pestañas.
+            const activosReales = pendientesActivos.filter(p => p.status !== 'Concluido');
 
-            // 2. Pestañas para Administrador (Mantenemos esto organizado para el jefe)
-            const adminTabs = [];
+            // ---------------------------------------------------------------
+            // 2. GENERACIÓN DE PESTAÑAS (PARA TODOS)
+            // ---------------------------------------------------------------
+            const userTabs = [];
             
-            if (userRole === 'Administrador') {
-              const sinAsignar = pendientesFiltrados.filter((p) => !p.colaboradorAsignado);
-              
-              adminTabs.push(
-                <Tab
-                  key="sin-asignar"
-                  eventKey="sin-asignar"
-                  title={`Sin Asignar (${sinAsignar.length})`}
-                >
-                  {renderPendientesTable(sinAsignar)}
-                </Tab>
-              );
+            // A. Pestaña "Sin Asignar" 
+            const sinAsignar = activosReales.filter((p) => !p.colaboradorAsignado);
+            
+            // Siempre mostramos "Sin Asignar" si hay algo ahí, o si eres Admin
+            if (sinAsignar.length > 0 || userRole === 'Administrador') {
+                userTabs.push(
+                  <Tab
+                    key="sin-asignar"
+                    eventKey="sin-asignar"
+                    title={`Sin Asignar (${sinAsignar.length})`}
+                  >
+                    {renderPendientesTable(sinAsignar)}
+                  </Tab>
+                );
+            }
 
+            // B. Pestañas por Colaborador (Ahora visibles para TODOS)
+            if (colaboradores && colaboradores.length > 0) {
               colaboradores.forEach((colab) => {
-                const pendientesDelColab = pendientesFiltrados.filter(
-                  (p) => p.colaboradorAsignado?.id === colab.id,
+                
+                // Filtramos de nuestra lista limpia 'activosReales'
+                const misActivos = activosReales.filter(
+                  (p) => p.colaboradorAsignado?.id === colab.id
                 );
                 
-                adminTabs.push(
+                userTabs.push(
                   <Tab
                     key={colab.id}
                     eventKey={colab.id.toString()}
-                    title={`${colab.username} (${pendientesDelColab.length})`}
+                    title={`${colab.username} (${misActivos.length})`}
                   >
-                    {renderPendientesTable(pendientesDelColab)}
+                    {renderPendientesTable(misActivos)}
                   </Tab>
                 );
               });
             }
 
-            // 3. Render final
+            // ---------------------------------------------------------------
+            // 3. RENDER FINAL
+            // ---------------------------------------------------------------
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
+                {/* Pestaña Principal: "Todos los Activos" */}
+                {/* Muestra todo lo que NO está concluido */}
                 <Tab
                   eventKey="todos"
                   title={
                     <>
-                      <strong>
-                        {userRole === 'Administrador' ? 'Todos los Activos' : 'Proyectos Activos'}
-                      </strong> 
+                      <strong>Todos los Activos</strong> 
                       <span className="ms-2 badge bg-primary bg-opacity-10 text-primary rounded-pill border border-primary border-opacity-25">
-                        {dataParaLaTabla.length}
+                        {activosReales.length}
                       </span>
                     </>
                   }
                 >
-                  {/* Pasamos la lista completa. Sin filtros. Sin errores. */}
                   {renderPendientesTable(
-                    dataParaLaTabla,
-                    userRole === 'Administrador'
+                    activosReales,
+                    userRole === 'Administrador' // Mantenemos los botones especiales solo para admin
                   )}
                 </Tab>
 
-                {adminTabs}
+                {/* Pestañas Individuales (Rashell, Jesus, etc.) */}
+                {userTabs}
                 
               </Tabs>
             );
-          })()}
+          })()} 
         </Card.Body>
-      </Card>
 {/* ================================================================ */}
 {/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
 {/* ================================================================ */}
