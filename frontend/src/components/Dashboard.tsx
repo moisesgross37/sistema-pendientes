@@ -1433,7 +1433,8 @@ const handleDeletePendiente = async () => {
 
             // 2. FILTRO VISUAL MAESTRO
             const dataParaLaTabla = (userRole === 'Colaborador')
-                ? pendientesActivos.filter(p => p.colaboradorAsignado?.id === user.id)
+                // Usamos Number() para asegurar que comparamos numero con numero
+? pendientesActivos.filter(p => Number(p.colaboradorAsignado?.id) === Number(user.id))
                 : pendientesActivos;
 
             // 3. Pestañas para Administrador
