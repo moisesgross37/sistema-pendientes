@@ -1416,8 +1416,9 @@ const handleDeletePendiente = async () => {
       </Button>
     </Modal.Footer>
   </Form>
-</Modal>{/* ================================================================ */}
-      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (CON FILTRO VISUAL) 📋 ===== */}
+</Modal>
+{/* ================================================================ */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Lógica Final) 📋 ===== */}
       {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
@@ -1426,22 +1427,16 @@ const handleDeletePendiente = async () => {
           {/* Lógica de Pestañas: DEMOCRÁTICA (Todos ven lo mismo) Y LIMPIA (Solo Activos) */}
           {(() => {
             
-            // ---------------------------------------------------------------
             // 1. REGLA DE ORO: FILTRO MAESTRO "ANTI-CONCLUIDOS"
-            // ---------------------------------------------------------------
-            // Tomamos la lista completa y sacamos TODO lo que diga "Concluido".
-            // Esta variable 'activosReales' será la fuente para TODAS las pestañas.
+            // Sacamos TODO lo que diga "Concluido".
             const activosReales = pendientesActivos.filter(p => p.status !== 'Concluido');
 
-            // ---------------------------------------------------------------
             // 2. GENERACIÓN DE PESTAÑAS (PARA TODOS)
-            // ---------------------------------------------------------------
             const userTabs = [];
             
             // A. Pestaña "Sin Asignar" 
             const sinAsignar = activosReales.filter((p) => !p.colaboradorAsignado);
             
-            // Siempre mostramos "Sin Asignar" si hay algo ahí, o si eres Admin
             if (sinAsignar.length > 0 || userRole === 'Administrador') {
                 userTabs.push(
                   <Tab
@@ -1454,11 +1449,9 @@ const handleDeletePendiente = async () => {
                 );
             }
 
-            // B. Pestañas por Colaborador (Ahora visibles para TODOS)
+            // B. Pestañas por Colaborador
             if (colaboradores && colaboradores.length > 0) {
               colaboradores.forEach((colab) => {
-                
-                // Filtramos de nuestra lista limpia 'activosReales'
                 const misActivos = activosReales.filter(
                   (p) => p.colaboradorAsignado?.id === colab.id
                 );
@@ -1475,14 +1468,11 @@ const handleDeletePendiente = async () => {
               });
             }
 
-            // ---------------------------------------------------------------
             // 3. RENDER FINAL
-            // ---------------------------------------------------------------
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
                 {/* Pestaña Principal: "Todos los Activos" */}
-                {/* Muestra todo lo que NO está concluido */}
                 <Tab
                   eventKey="todos"
                   title={
@@ -1496,17 +1486,19 @@ const handleDeletePendiente = async () => {
                 >
                   {renderPendientesTable(
                     activosReales,
-                    userRole === 'Administrador' // Mantenemos los botones especiales solo para admin
+                    userRole === 'Administrador'
                   )}
                 </Tab>
 
-                {/* Pestañas Individuales (Rashell, Jesus, etc.) */}
+                {/* Pestañas Individuales */}
                 {userTabs}
                 
               </Tabs>
             );
           })()} 
         </Card.Body>
+      </Card> 
+      {/* 👆 ¡ESTE ES EL CIERRE QUE TE FALTABA! */}
 {/* ================================================================ */}
 {/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
 {/* ================================================================ */}
