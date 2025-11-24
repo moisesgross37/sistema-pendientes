@@ -1425,23 +1425,39 @@ const handleDeletePendiente = async () => {
           
           {/* Lógica de Pestañas y Filtros */}
           {(() => {
-            
-            // 1. Recuperamos el usuario de forma segura
-            // (Usamos 'any' temporalmente para evitar que TypeScript se queje si la interfaz Usuario no coincide)
+            // 1. Recuperamos el usuario
             const userString = localStorage.getItem('user');
-            const user = userString ? JSON.parse(userString) : { id: 0, rol: '' };
+            const user = userString ? JSON.parse(userString) : { id: 0, rol: '', username: '' };
 
-            // 2. FILTRO VISUAL MAESTRO
+            // 🔍 DEBUGGING: Esto mostrará datos en la consola (F12) para saber qué pasa
+            // Si la lista sigue vacía, envíame una foto de lo que sale en la consola ("Console").
+            console.log("--- DEBUG DASHBOARD ---");
+            console.log("Usuario Local:", user);
+            console.log("Proyectos Activos Totales:", pendientesActivos.length);
+            if(pendientesActivos.length > 0) {
+               console.log("Ejemplo de Proyecto:", pendientesActivos[0]);
+               console.log("Ejemplo Asignado A:", pendientesActivos[0].colaboradorAsignado);
+            }
+
+            // 2. FILTRO VISUAL "A PRUEBA DE FALLOS"
             const dataParaLaTabla = (userRole === 'Colaborador')
-                // Usamos Number() para asegurar que comparamos numero con numero
-? pendientesActivos.filter(p => Number(p.colaboradorAsignado?.id) === Number(user.id))
+                ? pendientesActivos.filter(p => {
+                    // Verificación 1: Coincidencia de ID (Flexible, ignora texto vs numero)
+                    // eslint-disable-next-line eqeqeq
+                    const coincideID = p.colaboradorAsignado?.id == user.id;
+                    
+                    // Verificación 2: Coincidencia de Nombre (Respaldo por si el ID falla)
+                    const coincideNombre = p.colaboradorAsignado?.username === user.username;
+                    
+                    // Si cualquiera de los dos es verdad, mostramos el proyecto
+                    return coincideID || coincideNombre;
+                })
                 : pendientesActivos;
 
             // 3. Pestañas para Administrador
             const adminTabs = [];
             
             if (userRole === 'Administrador') {
-              // Pestaña: Sin Asignar
               const sinAsignar = pendientesFiltrados.filter((p) => !p.colaboradorAsignado);
               
               adminTabs.push(
@@ -1454,7 +1470,6 @@ const handleDeletePendiente = async () => {
                 </Tab>
               );
 
-              // Pestañas: Por Colaborador
               colaboradores.forEach((colab) => {
                 const pendientesDelColab = pendientesFiltrados.filter(
                   (p) => p.colaboradorAsignado?.id === colab.id,
@@ -1472,11 +1487,10 @@ const handleDeletePendiente = async () => {
               });
             }
 
-            // 4. Render final de las pestañas
+            // 4. Render final
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
-                {/* Pestaña Principal */}
                 <Tab
                   eventKey="todos"
                   title={
@@ -1496,7 +1510,6 @@ const handleDeletePendiente = async () => {
                   )}
                 </Tab>
 
-                {/* Pestañas Extra (Admin) */}
                 {adminTabs}
                 
               </Tabs>
