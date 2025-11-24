@@ -1692,7 +1692,32 @@ const handleDeletePendiente = async () => {
                     <div className="p-2 bg-white border rounded text-secondary fst-italic mb-2">
                       {caso.descripcion || "Sin descripción."}
                     </div>
-
+{/* 👇👇👇 INICIO DE LO NUEVO: GALERÍA DE IMÁGENES 👇👇👇 */}
+                    {caso.imagenes && caso.imagenes.length > 0 && (
+                      <div className="mb-3 mt-2 border-top pt-2">
+                        <small className="fw-bold text-primary d-block mb-2">
+                          <i className="bi bi-images"></i> Referencias Visuales:
+                        </small>
+                        <div className="d-flex flex-wrap gap-2">
+                          {caso.imagenes.map((imgName, imgIndex) => (
+                            <Button
+                              key={imgIndex}
+                              variant="outline-primary"
+                              size="sm"
+                              style={{ fontSize: '0.8rem' }}
+                              onClick={() => {
+                                // Construimos la URL para abrirla en otra pestaña
+                                const url = `${API_URL}/uploads/${imgName}`;
+                                window.open(url, '_blank');
+                              }}
+                            >
+                              👁️ Ver Foto {imgIndex + 1}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* 👆👆👆 FIN DE LO NUEVO 👆👆👆 */}
                     {/* Archivo Original */}
                     {caso.archivoUrl && !caso.pendiente && (
                       <div className="mb-2">
