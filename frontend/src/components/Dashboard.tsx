@@ -1423,43 +1423,15 @@ const handleDeletePendiente = async () => {
         <Card.Body>
           <Card.Title as="h3" className="mb-4">Lista de Proyectos Activos</Card.Title>
           
-          {/* Lógica de Pestañas y Filtros */}
+          {/* Lógica de Pestañas SIN FILTROS (Modo Transparencia Total) */}
           {(() => {
             
-            // 1. Recuperamos el usuario (y aseguramos que no sea null)
-            const userString = localStorage.getItem('user');
-            // Si no hay usuario, creamos un objeto vacío para que no rompa
-            const user = userString ? JSON.parse(userString) : {}; 
+            // 1. SIN FILTROS COMPLEJOS.
+            // Si el backend manda 100 proyectos, mostramos 100 proyectos.
+            // Esto asegura que Rashell vea sus tareas sí o sí.
+            const dataParaLaTabla = pendientesActivos;
 
-            // 2. FILTRO "TODOTERRENO" (ID, SUB o NOMBRE)
-            const dataParaLaTabla = (userRole === 'Colaborador')
-                ? pendientesActivos.filter(p => {
-                    // Validamos que el proyecto tenga un colaborador asignado
-                    if (!p.colaboradorAsignado) return false;
-
-                    // --- A. PREPARAMOS LOS DATOS DEL PROYECTO ---
-                    const pId = String(p.colaboradorAsignado.id);
-                    const pNombre = (p.colaboradorAsignado.username || '').toLowerCase().trim();
-
-                    // --- B. PREPARAMOS LOS DATOS DEL USUARIO LOGUEADO ---
-                    // A veces el ID viene como 'id' y a veces como 'sub' (en JWT)
-                    const uId = String(user.id || user.sub || ''); 
-                    const uNombre = (user.username || '').toLowerCase().trim();
-
-                    // --- C. LAS COMPARACIONES (Cualquiera sirve) ---
-                    const coincideID = (uId !== '' && pId === uId);
-                    const coincideNombre = (uNombre !== '' && pNombre === uNombre);
-
-                    // Debug visual en consola por si acaso
-                    if (p.id === 1) { // Solo imprimimos el primero para no saturar
-                        console.log("Comparando:", { pId, pNombre }, "con", { uId, uNombre });
-                    }
-
-                    return coincideID || coincideNombre;
-                })
-                : pendientesActivos;
-
-            // 3. Pestañas para Administrador
+            // 2. Pestañas para Administrador (Mantenemos esto organizado para el jefe)
             const adminTabs = [];
             
             if (userRole === 'Administrador') {
@@ -1492,7 +1464,7 @@ const handleDeletePendiente = async () => {
               });
             }
 
-            // 4. Render final
+            // 3. Render final
             return (
               <Tabs defaultActiveKey="todos" id="pendientes-tabs" className="mb-3" fill>
                 
@@ -1501,7 +1473,7 @@ const handleDeletePendiente = async () => {
                   title={
                     <>
                       <strong>
-                        {userRole === 'Administrador' ? 'Todos los Activos' : 'Mis Proyectos'}
+                        {userRole === 'Administrador' ? 'Todos los Activos' : 'Proyectos Activos'}
                       </strong> 
                       <span className="ms-2 badge bg-primary bg-opacity-10 text-primary rounded-pill border border-primary border-opacity-25">
                         {dataParaLaTabla.length}
@@ -1509,6 +1481,7 @@ const handleDeletePendiente = async () => {
                     </>
                   }
                 >
+                  {/* Pasamos la lista completa. Sin filtros. Sin errores. */}
                   {renderPendientesTable(
                     dataParaLaTabla,
                     userRole === 'Administrador'
