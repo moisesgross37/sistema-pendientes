@@ -675,53 +675,6 @@ const getResumenEstadoProyecto = (
       alert('Error actualizando el proyecto. Revisa la consola.');
     }
   };
-// --- FUNCIÓN DE TRANSFERENCIA RÁPIDA (DENTRO DEL MISMO MODAL) ---
-  const handleQuickTransfer = async () => {
-    if (!viewingProyecto || !selectedColaboradorId) {
-        alert("Por favor selecciona a quién le vas a pasar el proyecto.");
-        return;
-    }
-
-    // Confirmación de seguridad
-    const confirm = window.confirm("¿Estás seguro de transferir este proyecto? Desaparecerá de tu lista.");
-    if (!confirm) return;
-
-    setIsLoading(true);
-    const token = localStorage.getItem('authToken');
-
-    try {
-      const res = await fetch(`${API_URL}/pendientes/${viewingProyecto.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-            colaboradorAsignadoId: Number(selectedColaboradorId),
-            // Opcional: Si quieres que al transferir se cambie el estado a algo neutro
-            // status: 'Iniciado' 
-        })
-      });
-
-      if (!res.ok) throw new Error('Error al transferir el proyecto');
-
-      setSuccess(`¡Proyecto transferido exitosamente! 🚀`);
-      
-      // Cerramos todo
-      setViewingProyecto(null);
-      setEditableCasos([]);
-      setSelectedColaboradorId(''); // Limpiamos la selección
-      
-      // Recargamos la lista
-      if (userRole) fetchPendientes(userRole);
-
-    } catch (error) {
-      console.error(error);
-      alert('Error al transferir. Intenta de nuevo.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
   // --- FUNCIÓN DE TRANSFERENCIA CON NOTA (Bitácora) ---
   const handleQuickTransferWithNote = async () => {
     if (!viewingProyecto || !selectedColaboradorId) {
@@ -791,10 +744,6 @@ const getResumenEstadoProyecto = (
         alert("El navegador bloqueó la ventana emergente. Por favor permítela.");
         return;
     }
-
-    // URL Base para imágenes
-    const baseUrl = window.location.origin; // O usa API_URL si las imágenes vienen directo del backend
-
     // 3. Escribir el HTML
     printWindow.document.write(`
       <html>
