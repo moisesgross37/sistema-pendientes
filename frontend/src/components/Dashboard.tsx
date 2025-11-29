@@ -50,6 +50,12 @@ interface Pendiente {
   asesor: Usuario;
   colaboradorAsignado?: Usuario | null;
   casos: Caso[]; // <--- NUEVO: Un Pendiente ahora tiene un array de Casos
+  historial?: { 
+    fecha: string; 
+    autor: string; 
+    accion: string; 
+    nota: string; 
+  }[];
 }
 
 interface Usuario {
@@ -132,6 +138,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [viewingProyecto, setViewingProyecto] = useState<Pendiente | null>(null);
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
+  const [notaTransferencia, setNotaTransferencia] = useState('');
 
   // ==============================================================
   // 1. FUNCIÓN FETCH PENDIENTES (Con Auto-Logout)
@@ -141,6 +148,8 @@ function Dashboard({ token, setView }: DashboardProps) {
 
     switch (role) {
       case 'Administrador':
+      case 'Coordinador': // 👈 ¡AGREGAMOS ESTO AQUÍ!
+        // Al ponerlo así, ambos roles descargarán la lista COMPLETA
         endpointUrl = `${API_URL}/pendientes`;
         break;
       case 'Asesor':
@@ -215,7 +224,7 @@ function Dashboard({ token, setView }: DashboardProps) {
       setAllUsers(usersData);
       
       const collabUsers = usersData.filter(
-        (user: Usuario) => user.rol === 'Colaborador',
+        (user: Usuario) => user.rol === 'Colaborador' || user.rol === 'Coordinador',
       );
       setColaboradores(collabUsers);
 
@@ -666,7 +675,244 @@ const getResumenEstadoProyecto = (
       alert('Error actualizando el proyecto. Revisa la consola.');
     }
   };
+// --- FUNCIÓN DE TRANSFERENCIA RÁPIDA (DENTRO DEL MISMO MODAL) ---
+  const handleQuickTransfer = async () => {
+    if (!viewingProyecto || !selectedColaboradorId) {
+        alert("Por favor selecciona a quién le vas a pasar el proyecto.");
+        return;
+    }
 
+    // Confirmación de seguridad
+    const confirm = window.confirm("¿Estás seguro de transferir este proyecto? Desaparecerá de tu lista.");
+    if (!confirm) return;
+
+    setIsLoading(true);
+    const token = localStorage.getItem('authToken');
+
+    try {
+      const res = await fetch(`${API_URL}/pendientes/${viewingProyecto.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+            colaboradorAsignadoId: Number(selectedColaboradorId),
+            // Opcional: Si quieres que al transferir se cambie el estado a algo neutro
+            // status: 'Iniciado' 
+        })
+      });
+
+      if (!res.ok) throw new Error('Error al transferir el proyecto');
+
+      setSuccess(`¡Proyecto transferido exitosamente! 🚀`);
+      
+      // Cerramos todo
+      setViewingProyecto(null);
+      setEditableCasos([]);
+      setSelectedColaboradorId(''); // Limpiamos la selección
+      
+      // Recargamos la lista
+      if (userRole) fetchPendientes(userRole);
+
+    } catch (error) {
+      console.error(error);
+      alert('Error al transferir. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // --- FUNCIÓN DE TRANSFERENCIA CON NOTA (Bitácora) ---
+  const handleQuickTransferWithNote = async () => {
+    if (!viewingProyecto || !selectedColaboradorId) {
+        alert("⚠️ Por favor selecciona a quién le vas a pasar el proyecto.");
+        return;
+    }
+    if (!notaTransferencia.trim()) {
+        alert("⚠️ La 'Nota de Entrega' es obligatoria. Escribe qué estás entregando.");
+        return;
+    }
+
+    const confirm = window.confirm(`¿Transferir proyecto y guardar nota en el historial?`);
+    if (!confirm) return;
+
+    setIsLoading(true);
+    const token = localStorage.getItem('authToken');
+
+    try {
+      // Enviamos ID, la Nota y (opcionalmente) status
+      const res = await fetch(`${API_URL}/pendientes/${viewingProyecto.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+            colaboradorAsignadoId: Number(selectedColaboradorId),
+            notaTransferencia: notaTransferencia // <--- Aquí va la nota al backend
+        })
+      });
+
+      if (!res.ok) throw new Error('Error al transferir el proyecto');
+
+      setSuccess(`¡Transferencia exitosa! Se guardó en el historial. 📜`);
+      
+      // Limpieza total
+      setViewingProyecto(null);
+      setEditableCasos([]);
+      setSelectedColaboradorId('');
+      setNotaTransferencia(''); // Limpiamos la nota
+      
+      // Recarga
+      if (userRole) fetchPendientes(userRole);
+
+    } catch (error) {
+      console.error(error);
+      alert('Error al transferir. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // --- FUNCIÓN PARA IMPRIMIR COMPROBANTE (VERSIÓN FINAL V3 - SOPORTE PDF) ---
+  const handlePrintReceipt = () => {
+    if (!viewingProyecto) return;
+
+    // 1. Recopilar todas las imágenes de todos los casos
+    const todasLasEvidencias: string[] = [];
+    viewingProyecto.casos.forEach(caso => {
+        if (caso.imagenes && caso.imagenes.length > 0) {
+            todasLasEvidencias.push(...caso.imagenes);
+        }
+    });
+
+    // 2. Abrir ventana nueva
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+        alert("El navegador bloqueó la ventana emergente. Por favor permítela.");
+        return;
+    }
+
+    // URL Base para imágenes
+    const baseUrl = window.location.origin; // O usa API_URL si las imágenes vienen directo del backend
+
+    // 3. Escribir el HTML
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Comprobante de Entrega #${viewingProyecto.id}</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #0d6efd; padding-bottom: 10px; margin-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: bold; color: #0d6efd; text-transform: uppercase; }
+            .title { font-size: 18px; margin-top: 10px; font-weight: bold; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+            .label { font-weight: bold; font-size: 12px; color: #666; text-transform: uppercase; }
+            .value { font-size: 14px; margin-bottom: 5px; }
+            .section-title { font-size: 14px; font-weight: bold; background: #f0f0f0; padding: 5px 10px; margin-top: 20px; border-left: 4px solid #0d6efd; }
+            
+            .images-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+            .img-box { 
+                border: 1px solid #ccc; 
+                padding: 10px; 
+                border-radius: 4px; 
+                width: 160px; 
+                height: 190px;
+                text-align: center; 
+                background-color: #fff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            .img-box img { 
+                width: 140px; height: 140px; 
+                object-fit: cover; 
+                border: 1px solid #eee;
+            }
+            /* Estilo para el icono de PDF/Documento */
+            .doc-icon {
+                font-size: 48px; color: #dc3545; font-weight: bold;
+                border: 2px solid #dc3545; border-radius: 5px;
+                width: 80px; height: 100px;
+                display: flex; align-items: center; justify-content: center;
+                margin-bottom: 10px;
+            }
+            .img-label { font-size: 11px; color: #888; margin-top: 5px; font-weight: bold; word-break: break-all; }
+
+            .signatures { margin-top: 80px; display: flex; justify-content: space-between; }
+            .sig-line { width: 40%; border-top: 1px solid #000; text-align: center; padding-top: 10px; font-size: 12px; }
+            .footer { margin-top: 50px; font-size: 10px; text-align: center; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+            
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+              .img-box { break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          
+          <div class="header">
+            <div class="logo">BE EVENTOS</div>
+            <div class="title">Comprobante de Entrega de Trabajo</div>
+          </div>
+
+          <div class="info-grid">
+            <div><div class="label">ID Proyecto</div><div class="value">#${viewingProyecto.id}</div></div>
+            <div><div class="label">Fecha Entrega</div><div class="value">${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div></div>
+            <div><div class="label">Centro / Cliente</div><div class="value"><strong>${viewingProyecto.nombreCentro}</strong></div></div>
+            <div><div class="label">Estado Final</div><div class="value">${viewingProyecto.status}</div></div>
+            <div><div class="label">Asesor</div><div class="value">${viewingProyecto.asesor.username}</div></div>
+            <div><div class="label">Entregado por</div><div class="value">${viewingProyecto.colaboradorAsignado?.username || 'Administración'}</div></div>
+          </div>
+
+          <div class="section-title">EVIDENCIA DOCUMENTAL</div>
+          <p style="font-size: 12px; color: #666;">Documentos y archivos adjuntos entregados:</p>
+
+          <div class="images-container">
+            ${todasLasEvidencias.length > 0 
+                ? todasLasEvidencias.map((archivo, i) => {
+                    // Detectar si es PDF
+                    const esPdf = archivo.toLowerCase().endsWith('.pdf');
+                    // Usar URL absoluta al backend
+                    const fileUrl = `${API_URL}/uploads/${archivo}`;
+
+                    if (esPdf) {
+                        return `
+                        <div class="img-box">
+                            <div class="doc-icon">PDF</div>
+                            <div class="img-label">Documento ${i+1}</div>
+                        </div>`;
+                    } else {
+                        return `
+                        <div class="img-box">
+                            <img src="${fileUrl}" alt="Evidencia" onerror="this.src='https://via.placeholder.com/150?text=Error';" />
+                            <div class="img-label">Imagen ${i+1}</div>
+                        </div>`;
+                    }
+                  }).join('')
+                : '<p><em>No hay archivos adjuntos.</em></p>'
+            }
+          </div>
+
+          <div class="signatures">
+            <div class="sig-line"><strong>ENTREGADO POR</strong><br/>Firma y Sello</div>
+            <div class="sig-line"><strong>RECIBIDO CONFORME</strong><br/>Firma del Asesor / Cliente</div>
+          </div>
+
+          <div class="footer">
+            Documento generado el ${new Date().toLocaleString()}.
+          </div>
+
+          <script>
+            window.onload = function() { setTimeout(function() { window.print(); }, 1000); }
+          </script>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+  };
   // Esta función AHORA es llamada por el botón "Confirmar"
 // en el nuevo modal de borrado.
 const handleDeletePendiente = async () => {
@@ -1295,7 +1541,7 @@ const handleDeletePendiente = async () => {
               className="border-success"
             >
               <option value="">General (Asignaré manualmente después)</option>
-              <option value="Impresion">Impresión (Va directo a Adrian)</option>
+              <option value="Impresion">Impresión (Va directo a Jesus)</option>
               <option value="Coordinacion Administrativa">Coord. Administrativa (Va directo a Yubelis)</option>
               <option value="Redes y Web">Redes y Web (Va directo a Alondra)</option>
             </Form.Select>
@@ -1541,7 +1787,7 @@ const handleDeletePendiente = async () => {
                 >
                   <option value="">-- Sin Asignar --</option>
                   {allUsers
-                    .filter((user) => user.rol === 'Colaborador')
+                    .filter((user) => user.rol === 'Colaborador' || user.rol === 'Coordinador')
                     .map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.username}
@@ -1833,22 +2079,129 @@ const handleDeletePendiente = async () => {
         )}
       </>
     )}
+{/* ======================================================= */}
+        {/* 👇 ZONA DE TRANSFERENCIA EVOLUCIONADA (CON HISTORIAL) 👇 */}
+        {/* ======================================================= */}
+        <div className="mt-5">
+          
+          {/* A. VISOR DE HISTORIAL (La Bitácora) */}
+          {viewingProyecto?.historial && viewingProyecto.historial.length > 0 && (
+             <div className="mb-4 p-3 bg-white border rounded shadow-sm">
+                <h6 className="fw-bold text-secondary mb-3 border-bottom pb-2">
+                    📜 Historial de Movimientos
+                </h6>
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {viewingProyecto.historial.map((mov, idx) => (
+                        <div key={idx} className="d-flex align-items-start border-bottom pb-2 mb-2">
+                            <div className="me-3 text-muted text-nowrap" style={{fontSize:'0.75rem', width: '80px'}}>
+                                {new Date(mov.fecha).toLocaleDateString()} <br/>
+                                {new Date(mov.fecha).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                            <div>
+                                <div className="d-flex align-items-center gap-2">
+                                    <Badge bg="secondary" style={{fontSize:'0.7rem'}}>{mov.autor}</Badge>
+                                    <i className="bi bi-arrow-right text-muted"></i>
+                                    <strong className="text-dark" style={{fontSize:'0.85rem'}}>
+                                        {mov.accion}
+                                    </strong>
+                                </div>
+                                <div className="mt-1 p-2 bg-light rounded text-secondary fst-italic border small">
+                                    "{mov.nota}"
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
+          )}
+
+          {/* B. FORMULARIO DE TRANSFERENCIA */}
+          <div className="p-4 bg-light border rounded border-primary border-opacity-25 shadow-sm">
+            <h6 className="fw-bold text-primary mb-3">
+                <i className="bi bi-arrow-left-right me-2"></i>
+                Gestión de Flujo / Reasignación
+            </h6>
+            <p className="text-muted small mb-3">
+                Para transferir este proyecto, selecciona el destino y deja una nota obligatoria.
+            </p>
+            
+            <Row className="g-3 align-items-end">
+                {/* 1. Selector */}
+                <Col md={4}>
+                    <Form.Label className="small text-muted fw-bold">Pasar proyecto a:</Form.Label>
+                    <Form.Select 
+                        value={selectedColaboradorId}
+                        onChange={(e) => setSelectedColaboradorId(e.target.value)}
+                    >
+                        <option value="">-- Seleccionar --</option>
+                        {allUsers
+                        .filter(u => u.rol === 'Colaborador' || u.rol === 'Coordinador')
+                        .filter(u => u.id !== viewingProyecto?.colaboradorAsignado?.id)
+                        .map(user => (
+                            <option key={user.id} value={user.id}>
+                            ➡️ {user.username} ({user.rol})
+                            </option>
+                        ))
+                        }
+                    </Form.Select>
+                </Col>
+
+                {/* 2. Nota Obligatoria */}
+                <Col md={6}>
+                    <Form.Label className="small text-muted fw-bold">Nota de Entrega (Obligatorio):</Form.Label>
+                    <Form.Control
+                        type="text"
+                        placeholder="Ej: Fotos listas y subidas. Falta imprimir..."
+                        value={notaTransferencia}
+                        onChange={(e) => setNotaTransferencia(e.target.value)}
+                    />
+                </Col>
+
+                {/* 3. Botón */}
+                <Col md={2}>
+                    <Button 
+                        variant="primary" 
+                        className="w-100"
+                        disabled={!selectedColaboradorId || !notaTransferencia.trim() || isLoading}
+                        onClick={handleQuickTransferWithNote}
+                    >
+                        {isLoading ? 'Enviando...' : 'Transferir'}
+                    </Button>
+                </Col>
+            </Row>
+          </div>
+        </div>
+        {/* 👆 FIN ZONA DE TRANSFERENCIA 👆 */}
   </Modal.Body>
 
   <Modal.Footer className="bg-light">
-    {userRole === 'Administrador' && (
+    
+    {/* 👇 1. AQUÍ VA EL NUEVO BOTÓN (Al principio) 👇 */}
+    <Button 
+        variant="outline-dark" 
+        className="me-auto" // Esto lo empuja a la izquierda
+        onClick={handlePrintReceipt}
+    >
+        🖨️ Imprimir Recibo
+    </Button>
+    {/* 👆 ------------------------------------------ 👆 */}
+
+    {/* Botón de Finalizar (Solo jefes) */}
+    {(userRole === 'Administrador' || userRole === 'Coordinador') && (
       <Button
         variant="success"
         disabled={isLoading}
         onClick={handleMarkAsConcluido}
-        className="me-auto"
+        className="ms-2" // Margen a la izquierda para separarlo
       >
         {isLoading ? 'Finalizando...' : '✅ Finalizar Proyecto'}
       </Button>
     )}
 
+    {/* Botón Cerrar */}
     <Button
       variant="secondary"
+      className="ms-2"
       onClick={() => {
         setViewingProyecto(null);
         setEditableCasos([]);

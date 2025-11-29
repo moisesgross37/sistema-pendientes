@@ -337,6 +337,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
                   >
                     <option value="Asesor">Asesor</option>
                     <option value="Colaborador">Colaborador</option>
+                    <option value="Coordinador">Coordinador</option>
                     <option value="Administrador">Administrador</option>
                   </Form.Select>
                 </Form.Group>
