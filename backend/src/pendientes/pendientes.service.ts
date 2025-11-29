@@ -28,12 +28,6 @@ export class PendientesService {
     private estadosCasosService: EstadosCasosService,
   ) {}
 
-  // backend/src/pendientes/pendientes.service.ts
-
-  // ... (imports y constructor siguen igual)
-
-  // backend/src/pendientes/pendientes.service.ts
-
   async create(createPendienteDto: CreatePendienteDto): Promise<Pendiente> {
     const { nombreCentro, asesorId, casos, area } = createPendienteDto;
 
@@ -56,27 +50,17 @@ export class PendientesService {
       );
     }
 
-    // --- 🧠 LÓGICA DE AUTO-ASIGNACIÓN (CORREGIDA) 🧠 ---
+    // --- 🧠 LÓGICA DE AUTO-ASIGNACIÓN 🧠 ---
     
     let colaboradorAutoAsignado: Usuario | null = null; 
-    
-    // 👇 AQUÍ ESTÁ EL CAMBIO: Usamos 'Por Asignar' que sí es válido en la BD
     let statusInicial = 'Por Asignar'; 
-    // 👆 -----------------------------------------------------------
-
     let fechaAsignacionInicial: Date | null = null;
     let targetUsername = '';
 
     // 1. Definimos reglas
-    if (area === 'Impresion') {
-        targetUsername = 'Adrian'; 
-    } 
-    else if (area === 'Coordinacion Administrativa') {
-        targetUsername = 'Yubelis'; 
-    } 
-    else if (area === 'Redes y Web') {
-        targetUsername = 'Alondra'; 
-    }
+    if (area === 'Impresion') targetUsername = 'Jesus';
+    else if (area === 'Coordinacion Administrativa') targetUsername = 'Yubelis'; 
+    else if (area === 'Redes y Web') targetUsername = 'Alondra'; 
 
     // 2. Buscamos usuario
     if (targetUsername) {
@@ -86,11 +70,8 @@ export class PendientesService {
          console.log(`✅ Auto-asignando proyecto de ${area} a ${targetUsername}`);
          statusInicial = 'Iniciado'; 
          fechaAsignacionInicial = new Date(); 
-      } else {
-         console.warn(`⚠️ Advertencia: Se intentó asignar a '${targetUsername}' pero no existe.`);
       }
     }
-    // ------------------------------------------------------------
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -101,9 +82,10 @@ export class PendientesService {
         nombreCentro,
         asesor: asesor,
         area: area, 
-        colaboradorAsignado: colaboradorAutoAsignado, 
+        colaboradorAsignado: colaboradorAutoAsignado,
         status: statusInicial,
-        fechaAsignacion: fechaAsignacionInicial
+        fechaAsignacion: fechaAsignacionInicial,
+        historial: [], // <--- IMPORTANTE: Inicializamos el historial vacío
       });
       
       const pendienteGuardado = await queryRunner.manager.save(nuevoPendiente);
@@ -119,14 +101,14 @@ export class PendientesService {
       }
 
       await queryRunner.commitTransaction();
-
-      const resultado = await this.findOne(pendienteGuardado.id);
-      if (!resultado) {
-        throw new InternalServerErrorException(
-          'No se pudo encontrar el pendiente recién creado.',
-        );
+      
+      // 👇 CORRECCIÓN PARA TYPESCRIPT 👇
+      const resultadoFinal = await this.findOne(pendienteGuardado.id);
+      if (!resultadoFinal) {
+        throw new InternalServerErrorException('Error al recuperar el proyecto guardado.');
       }
-      return resultado;
+      return resultadoFinal;
+      // 👆 ----------------------------
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -137,6 +119,8 @@ export class PendientesService {
       await queryRunner.release();
     }
   }
+
+  // --- MÉTODOS DE BÚSQUEDA ---
 
   async findAll() {
     return this.pendientesRepository.find({
@@ -153,23 +137,13 @@ export class PendientesService {
     });
   }
 
-  // --- 👇 MODIFICACIÓN PARA ACTIVAR RANKING GLOBAL 👇 ---
+  // Mantenemos la lógica de Ranking Global (retorna todo)
   async findForColaborador(userId: number): Promise<Pendiente[]> {
-    // ANTES: return this.pendientesRepository.find({ where: { colaboradorAsignado: { id: userId } }, ... });
-    
-    // AHORA: Retornamos TODOS los pendientes (sin filtrar por ID)
-    // Esto permite que el componente "Competencia del Mes" tenga datos de todos los compañeros.
-    // NOTA: El Frontend debe encargarse de bloquear el botón "Editar" en los proyectos que no sean del usuario.
-    
     return this.pendientesRepository.find({
-      // 🚫 COMENTAMOS EL FILTRO:
-      // where: { colaboradorAsignado: { id: userId } }, 
-      
       relations: ['asesor', 'colaboradorAsignado', 'casos', 'casos.estado'],
       order: { id: 'ASC' },
     });
   }
-  // --- 👆 FIN DE LA MODIFICACIÓN 👆 ---
 
   findOne(id: number) {
     return this.pendientesRepository.findOne({
@@ -178,20 +152,74 @@ export class PendientesService {
     });
   }
 
-  // --- ⭐ UPDATE CORREGIDO (LÓGICA AL FINAL) ⭐ ---
+  // --- 👇 UPDATE MEJORADO CON BITÁCORA DE TRANSFERENCIAS 👇 ---
   async update(id: number, updatePendienteDto: UpdatePendienteDto) {
-    const { colaboradorAsignadoId, status } = updatePendienteDto;
+    // Usamos 'as any' para leer la nota aunque no esté en el DTO oficial
+    const { colaboradorAsignadoId, status, notaTransferencia } = updatePendienteDto as any;
     
     const pendiente = await this.pendientesRepository.findOne({
       where: { id },
-      relations: ['colaboradorAsignado'],
+      relations: ['colaboradorAsignado', 'asesor'],
     });
 
     if (!pendiente) {
       throw new NotFoundException(`Pendiente con ID "${id}" no encontrado`);
     }
 
-    // 1. Cambio manual (si existe)
+    // Aseguramos que el array exista
+    if (!pendiente.historial) {
+      pendiente.historial = [];
+    }
+
+    // 1. DETECCIÓN DE TRANSFERENCIA (Cambio de dueño)
+    if (colaboradorAsignadoId !== undefined && colaboradorAsignadoId !== null) {
+       
+       // Si el ID que llega es DIFERENTE al ID que ya tiene... es un traspaso
+       if (pendiente.colaboradorAsignado?.id !== colaboradorAsignadoId) {
+          const nuevoResponsable = await this.usuariosRepository.findOneBy({
+            id: colaboradorAsignadoId,
+          });
+
+          if (nuevoResponsable) {
+            // ¿Quién envía? Si tenía dueño, ponemos su nombre. Si no, Admin/Sistema.
+            const autorNombre = pendiente.colaboradorAsignado?.username || 'Coordinación/Admin';
+
+            // Creamos el registro
+            const movimiento = {
+              fecha: new Date(),
+              autor: autorNombre,
+              accion: `Transfirió a ${nuevoResponsable.username}`,
+              nota: notaTransferencia || 'Sin nota de entrega.',
+            };
+
+            // Guardamos en el historial (unshift lo pone al principio de la lista)
+            pendiente.historial.unshift(movimiento);
+
+            // Efectuamos el cambio
+            pendiente.colaboradorAsignado = nuevoResponsable;
+            pendiente.fechaAsignacion = new Date(); // Reinicia el reloj de este responsable
+
+            // Reactivamos si estaba dormido
+            if (pendiente.status === 'Por Asignar' || pendiente.status === 'Detenido') {
+              pendiente.status = 'Iniciado';
+            }
+          }
+       }
+    } 
+    // Caso especial: Desasignar (poner en null)
+    else if (colaboradorAsignadoId === null) {
+        const autorNombre = pendiente.colaboradorAsignado?.username || 'Admin';
+        pendiente.historial.unshift({
+            fecha: new Date(),
+            autor: autorNombre,
+            accion: 'Liberó el proyecto (Sin Asignar)',
+            nota: notaTransferencia || 'Devuelto a cola general.',
+        });
+        pendiente.colaboradorAsignado = null;
+        pendiente.status = 'Por Asignar';
+    }
+
+    // 2. Cambio manual de estado (si se envió status)
     if (status) {
       if (status === 'Concluido' && pendiente.status !== 'Concluido') {
         pendiente.fechaConclusion = new Date();
@@ -199,36 +227,9 @@ export class PendientesService {
       pendiente.status = status;
     }
 
-    // 2. Cambio de Colaborador (Este manda sobre el status manual)
-    if (colaboradorAsignadoId === undefined) {
-       // Nada
-    } else if (colaboradorAsignadoId === null) {
-      pendiente.colaboradorAsignado = null;
-      pendiente.fechaAsignacion = null;
-      pendiente.status = 'Por Asignar';
-    } else {
-      const colaborador = await this.usuariosRepository.findOneBy({
-        id: colaboradorAsignadoId,
-      });
-      if (!colaborador) {
-        throw new NotFoundException(
-          `Colaborador con ID "${colaboradorAsignadoId}" no encontrado`,
-        );
-      }
-      pendiente.colaboradorAsignado = colaborador;
-      
-      if (!pendiente.fechaAsignacion) {
-        pendiente.fechaAsignacion = new Date();
-      }
-
-      // Corrección: Aceptamos ambos estados iniciales
-      if (pendiente.status === 'Pendiente' || pendiente.status === 'Por Asignar') {
-        pendiente.status = 'Iniciado';
-      }
-    }
-
     return this.pendientesRepository.save(pendiente);
   }
+  // --- 👆 FIN UPDATE MEJORADO 👆 ---
 
   async remove(id: number): Promise<{ message: string }> {
     const pendiente = await this.pendientesRepository.findOneBy({ id });

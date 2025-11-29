@@ -5,9 +5,8 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
   OneToMany,
-} from 'typeorm';
+} from 'typeorm'; // (Nota: quité UpdateDateColumn si no se usaba, o puedes dejarlo)
 import { Caso } from '../../casos/entities/caso.entity';
 
 @Entity({ name: 'pendientes' })
@@ -30,10 +29,8 @@ export class Pendiente {
   @Column({ nullable: true })
   area: string; // Ej: 'General', 'Impresion', 'Admin'
 
-  // --- 👇 AQUÍ ESTÁ LA CORRECCIÓN ---
-  @Column({ nullable: true }) // <-- Le decimos que PUEDE ser nula
+  @Column({ nullable: true })
   descripcion: string;
-  // --- 👆 ---
 
   @Column({
     type: 'enum',
@@ -53,6 +50,18 @@ export class Pendiente {
 
   @Column({ type: 'simple-array', nullable: true })
   imagenes?: string[];
+
+  // --- 👇 AQUÍ ESTÁ LA NUEVA BITÁCORA (HISTORIAL) ---
+  // Usamos 'jsonb' para guardar la lista de movimientos dentro del mismo pendiente
+  // sin tener que crear una tabla extra. Es perfecto para auditoría.
+  @Column('jsonb', { nullable: true, default: [] })
+  historial: { 
+    fecha: Date; 
+    autor: string; 
+    accion: string; 
+    nota: string; 
+  }[];
+  // --- 👆 ------------------------------------------
 
   @ManyToOne(() => Usuario, { eager: true })
   asesor: Usuario;
