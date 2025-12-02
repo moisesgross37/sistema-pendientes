@@ -224,7 +224,9 @@ function Dashboard({ token, setView }: DashboardProps) {
       setAllUsers(usersData);
       
       const collabUsers = usersData.filter(
-        (user: Usuario) => user.rol === 'Colaborador' || user.rol === 'Coordinador',
+        (user: Usuario) => 
+          (user.rol === 'Colaborador' || user.rol === 'Coordinador') && 
+          user.isActive === true // 👈 ESTO ES LO NUEVO: Solo los activos
       );
       setColaboradores(collabUsers);
 
