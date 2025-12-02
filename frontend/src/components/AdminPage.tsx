@@ -162,34 +162,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
-  
-  // --- (handleUpdateRol, handleUpdateEstado... sin cambios) ---
-  const handleUpdateRol = async (id: number, rol: string) => {
-    const nuevoRol = rol === 'Administrador' ? 'Colaborador' : 'Administrador';
-    setError('');
-    setSuccess('');
-    
-    try {
-      const res = await fetch(`${API_URL}/usuarios/${id}/rol`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ rol: nuevoRol }),
-      });
-       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'No se pudo actualizar el rol.');
-      }
-      setSuccess('Rol actualizado con éxito.');
-      fetchUsers();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleUpdateEstado = async (id: number, isActive: boolean) => {
+    const handleUpdateEstado = async (id: number, isActive: boolean) => {
     const nuevoEstado = !isActive;
     setError('');
     setSuccess('');
