@@ -54,6 +54,8 @@ function AdminPage({ token, setView }: AdminPageProps) {
   const [resettingUsuario, setResettingUsuario] = useState<Usuario | null>(null);
   const [newResetPassword, setNewResetPassword] = useState('');
   // --- 👆 ---
+  const [editingRolUsuario, setEditingRolUsuario] = useState<Usuario | null>(null);
+  const [selectedRolUpdate, setSelectedRolUpdate] = useState('');
 
   // Cargar usuarios al iniciar
   useEffect(() => {
@@ -80,7 +82,42 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
+// --- FUNCIÓN PARA GUARDAR EL CAMBIO DE ROL (CON SELECTOR) ---
+  const handleSaveNewRol = async () => {
+    if (!editingRolUsuario) return;
 
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/usuarios/${editingRolUsuario.id}/rol`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rol: selectedRolUpdate }), // Enviamos el rol seleccionado
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'No se pudo actualizar el rol.');
+      }
+
+      setSuccess(`Rol de "${editingRolUsuario.username}" actualizado a: ${selectedRolUpdate}`);
+      fetchUsers(); // Recargamos la tabla
+      
+      // Cerramos el modal
+      setEditingRolUsuario(null);
+      setSelectedRolUpdate('');
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -378,13 +415,16 @@ function AdminPage({ token, setView }: AdminPageProps) {
               </td>
               <td>
                 <Button 
-                  variant="outline-primary" 
-                  size="sm" 
-                  className="me-2"
-                  onClick={() => handleUpdateRol(user.id, user.rol)}
-                >
-                  Editar Rol
-                </Button>
+  variant="outline-primary" 
+  size="sm" 
+  className="me-2"
+  onClick={() => {
+     setEditingRolUsuario(user);   // Guardamos el usuario
+     setSelectedRolUpdate(user.rol); // Pre-seleccionamos su rol actual
+  }}
+>
+  Editar Rol
+</Button>
                 <Button 
                   variant="outline-warning" 
                   size="sm" 
@@ -512,7 +552,55 @@ function AdminPage({ token, setView }: AdminPageProps) {
           </Modal.Footer>
         </Form>
       </Modal>
+{/* ================================================================ */}
+      {/* ===== 🚀 MODAL DE CAMBIO DE ROL (SELECTOR) 🚀 ===== */}
+      {/* ================================================================ */}
+      <Modal 
+        show={editingRolUsuario !== null} 
+        onHide={() => setEditingRolUsuario(null)} 
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Cambiar Rol de Usuario</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Usuario: <strong>{editingRolUsuario?.nombreCompleto}</strong> <br/>
+            Rol Actual: <Badge bg="secondary">{editingRolUsuario?.rol}</Badge>
+          </p>
+          
+          <Form.Group>
+            <Form.Label className="fw-bold">Selecciona el Nuevo Rol:</Form.Label>
+            <Form.Select
+              value={selectedRolUpdate}
+              onChange={(e) => setSelectedRolUpdate(e.target.value)}
+              size="lg"
+            >
+              <option value="Administrador">Administrador</option>
+              <option value="Coordinador">Coordinador</option> {/* <--- AQUÍ ESTÁ EL NUEVO */}
+              <option value="Colaborador">Colaborador</option>
+              <option value="Asesor">Asesor</option>
+            </Form.Select>
+          </Form.Group>
 
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setEditingRolUsuario(null)} 
+            disabled={isLoading}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleSaveNewRol} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Guardando...' : 'Guardar Cambio'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container> // <-- 1. Cierre del Container (Arregla el error 521)
     ); // <-- 2. Cierre del return
 } // <-- 3. Cierre de la función AdminPage

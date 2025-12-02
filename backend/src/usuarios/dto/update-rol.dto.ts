@@ -1,8 +1,9 @@
-import { IsString, IsNotEmpty, IsIn } from 'class-validator';
+import { IsIn, IsString, IsNotEmpty } from 'class-validator';
 
 export class UpdateRolDto {
   @IsString()
   @IsNotEmpty()
-  @IsIn(['Administrador', 'Colaborador', 'Asesor'])
+  // 👇 AQUÍ FALTABA AGREGAR 'Coordinador' 👇
+  @IsIn(['Administrador', 'Colaborador', 'Asesor', 'Coordinador'])
   rol: string;
 }
