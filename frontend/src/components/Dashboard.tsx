@@ -1431,7 +1431,7 @@ const handleDeletePendiente = async () => {
       {/* ===== 🚀 MODAL DE CREACIÓN DE PROYECTO (ACTUALIZADO) 🚀 ===== */}
       {/* ================================================================ */}
       {/* MODIFICACIÓN AQUÍ: Añadimos 'Colaborador' a la condición */}
-      {(userRole === 'Asesor' || userRole === 'Administrador' || userRole === 'Colaborador') && (
+      {(userRole === 'Asesor' || userRole === 'Administrador' || userRole === 'Colaborador' || userRole === 'Coordinador') && (
         <div className="mb-4">
           <Button
             variant="primary"
