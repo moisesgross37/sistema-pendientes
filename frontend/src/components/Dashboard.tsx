@@ -1641,7 +1641,7 @@ const handleDeletePendiente = async () => {
   </Form>
 </Modal>
 {/* ================================================================ */}
-      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Versión Final TypeScript) 📋 ===== */}
+      {/* ===== 📋 LISTA DE PROYECTOS ACTIVOS (Conectada a Filtros) 📋 ===== */}
       {/* ================================================================ */}
       <Card className="mb-4 shadow-sm">
         <Card.Body>
@@ -1650,12 +1650,9 @@ const handleDeletePendiente = async () => {
           {/* Lógica de Pestañas */}
           {(() => {
             
-            // 🔧 CORRECCIÓN FINAL DE TYPESCRIPT 🔧
-            // Usamos la variable 'pendientesActivos' en un log para que TS no se queje de que no se usa.
-            console.log("Total General Activos en memoria:", pendientesActivos.length);
-
-            // Lógica Real: Usamos 'pendientesFiltrados' para respetar los filtros de arriba.
-            const activosReales = pendientesFiltrados.filter(p => p.status !== 'Concluido');
+            // 👇 AQUÍ ESTÁ EL CAMBIO IMPORTANTE:
+            // Usamos 'filteredPendientes' (que ya tiene el filtro de ESTADO aplicado).
+            const activosReales = filteredPendientes.filter(p => p.status !== 'Concluido');
 
             // 2. GENERACIÓN DE PESTAÑAS
             const userTabs = [];
@@ -1663,7 +1660,8 @@ const handleDeletePendiente = async () => {
             // A. Pestaña "Sin Asignar" 
             const sinAsignar = activosReales.filter((p) => !p.colaboradorAsignado);
             
-            if (sinAsignar.length > 0 || userRole === 'Administrador') {
+            // Permitimos ver esto a Admin y Coordinador
+            if (sinAsignar.length > 0 || userRole === 'Administrador' || userRole === 'Coordinador') {
                 userTabs.push(
                   <Tab
                     key="sin-asignar"
@@ -1682,15 +1680,18 @@ const handleDeletePendiente = async () => {
                   (p) => p.colaboradorAsignado?.id === colab.id
                 );
                 
-                userTabs.push(
-                  <Tab
-                    key={colab.id}
-                    eventKey={colab.id.toString()}
-                    title={`${colab.username} (${misActivos.length})`}
-                  >
-                    {renderPendientesTable(misActivos)}
-                  </Tab>
-                );
+                // Solo mostramos pestaña si tiene activos o si eres Admin/Coord
+                if (misActivos.length > 0 || userRole === 'Administrador' || userRole === 'Coordinador') {
+                    userTabs.push(
+                    <Tab
+                        key={colab.id}
+                        eventKey={colab.id.toString()}
+                        title={`${colab.username} (${misActivos.length})`}
+                    >
+                        {renderPendientesTable(misActivos)}
+                    </Tab>
+                    );
+                }
               });
             }
 
@@ -1712,7 +1713,7 @@ const handleDeletePendiente = async () => {
                 >
                   {renderPendientesTable(
                     activosReales,
-                    userRole === 'Administrador'
+                    userRole === 'Administrador' || userRole === 'Coordinador'
                   )}
                 </Tab>
 
