@@ -141,6 +141,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
   const [notaTransferencia, setNotaTransferencia] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [filtroEstado, setFiltroEstado] = useState('');
 
   // ==============================================================
   // 1. FUNCIÓN FETCH PENDIENTES (Con Auto-Logout)
@@ -906,23 +907,20 @@ const handleDeletePendiente = async () => {
     setIsLoading(false); // Desactivamos el spinner
   }
 };
-  
+// ================================================================
+  // ===== 🚀 LÓGICA DE FILTROS (ACTUALIZADA CON ESTADO) 🚀 =====
   // ================================================================
-  // ===== 🚀 LÓGICA DE FILTROS Y VISTAS 🚀 =====
-  // ================================================================
-
-  // (Toda esta sección se mantiene intacta)
-
   const filteredPendientes = pendientes.filter((p) => {
+    // 1. Filtro Asesor
     if (filtroAsesor && p.asesor.id !== parseInt(filtroAsesor)) return false;
+    
+    // 2. Filtro Asignado (si lo usas)
     if (filtroAsignado) {
       if (filtroAsignado === 'ninguno' && p.colaboradorAsignado) return false;
-      if (
-        filtroAsignado !== 'ninguno' &&
-        p.colaboradorAsignado?.id !== parseInt(filtroAsignado)
-      )
-        return false;
+      if (filtroAsignado !== 'ninguno' && p.colaboradorAsignado?.id !== parseInt(filtroAsignado)) return false;
     }
+
+    // 3. Filtro Días
     if (filtroDias) {
       const fechaCreacion = new Date(p.fechaCreacion);
       const hoy = new Date();
@@ -934,9 +932,16 @@ const handleDeletePendiente = async () => {
       if (filtroDias === '5-9' && (diffDias < 5 || diffDias >= 10)) return false;
       if (filtroDias === '10+' && diffDias < 10) return false;
     }
+
+    // 4. 👇 NUEVO: Filtro por Estado Visual (Calculado) 👇
+    if (filtroEstado) {
+        // Calculamos el estado igual que lo hace la tabla visualmente
+        const estadoCalculado = getResumenEstadoProyecto(p.status, p.casos).nombre;
+        if (estadoCalculado !== filtroEstado) return false;
+    }
+
     return true;
   });
-
   const pendientesActivos = filteredPendientes.filter(
     (p) => p.status !== 'Concluido',
   );
@@ -960,6 +965,7 @@ const handleDeletePendiente = async () => {
             <Card.Title>Filtros</Card.Title>
             <Form>
               <Row>
+                {/* 1. Filtro Asesor */}
                 <Col md={4}>
                   <Form.Group>
                     <Form.Label>Filtrar por Asesor</Form.Label>
@@ -980,6 +986,8 @@ const handleDeletePendiente = async () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
+
+                {/* 2. Filtro Días */}
                 <Col md={4}>
                   <Form.Group>
                     <Form.Label>Filtrar por Días</Form.Label>
@@ -994,12 +1002,30 @@ const handleDeletePendiente = async () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
+
+                {/* 3. 👇 NUEVO: Filtro por Estado Visual 👇 */}
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label>Filtrar por Estado Actual</Form.Label>
+                    <Form.Select
+                      value={filtroEstado}
+                      onChange={(e) => setFiltroEstado(e.target.value)}
+                    >
+                      <option value="">Todos los Estados</option>
+                      <option value="Por Asignar">⚪ Por Asignar</option>
+                      <option value="Iniciado">🔵 Iniciado</option>
+                      <option value="Pendiente">🔘 Pendiente</option>
+                      <option value="En Proceso">🔵 En Proceso</option>
+                      <option value="Detenido">⛔ Detenido</option>
+                      <option value="Resuelto (Listo)">🟢 Resuelto (Listo)</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
               </Row>
             </Form>
           </Card.Body>
         </Card>
       )}
-
       <Table striped bordered hover responsive>
         <thead>
           <tr>
