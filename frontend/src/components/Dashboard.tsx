@@ -140,6 +140,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [editableCasos, setEditableCasos] = useState<Caso[]>([]);
   const [deletingPendiente, setDeletingPendiente] = useState<Pendiente | null>(null);
   const [notaTransferencia, setNotaTransferencia] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
 
   // ==============================================================
   // 1. FUNCIÓN FETCH PENDIENTES (Con Auto-Logout)
@@ -1700,16 +1701,39 @@ const handleDeletePendiente = async () => {
 {/* ================================================================ */}
 {/* ===== 🚀 HISTORIAL DE PROYECTOS CONCLUIDOS 🚀 ===== */}
 {/* ================================================================ */}
-<Card className="mb-4 shadow-sm">
-  <Card.Body>
-    <Card.Title as="h3">Historial de Proyectos Concluidos</Card.Title>
-    {/* Aquí re-usamos tu función 'renderPendientesTable'
-        pero le pasamos la lista 'pendientesConcluidos'
-        (que ya se calcula en la línea 782)
-    */}
-    {renderPendientesTable(pendientesConcluidos, false)}
-  </Card.Body>
-</Card>
+{/* ================================================================ */}
+      {/* ===== 📂 BOTÓN PARA VER/OCULTAR HISTORIAL (LIMPIEZA VISUAL) 📂 ===== */}
+      {/* ================================================================ */}
+      
+      <div className="d-flex justify-content-center my-4">
+        <Button 
+          variant={showHistory ? "outline-secondary" : "outline-primary"}
+          size="lg"
+          onClick={() => setShowHistory(!showHistory)}
+          className="d-flex align-items-center gap-2 shadow-sm rounded-pill px-4"
+        >
+          {showHistory ? (
+            <>🙈 Ocultar Historial ({pendientesConcluidos.length})</>
+          ) : (
+            <>📂 Ver Historial de Concluidos ({pendientesConcluidos.length})</>
+          )}
+        </Button>
+      </div>
+
+      {/* Solo mostramos la tarjeta si el interruptor está encendido */}
+      {showHistory && (
+        <Card className="mb-4 shadow-sm animate__animated animate__fadeIn">
+          <Card.Body>
+            <Card.Title as="h3" className="text-secondary border-bottom pb-3 mb-3">
+              🗄️ Archivo de Proyectos Terminados
+            </Card.Title>
+            
+            {/* Reutilizamos la tabla de siempre */}
+            {renderPendientesTable(pendientesConcluidos, false)}
+            
+          </Card.Body>
+        </Card>
+      )}
       {/* Modal de Actualización (LIMPIO: Solo Asignar Colaborador) */}
       <Modal
         show={editingPendiente !== null}
