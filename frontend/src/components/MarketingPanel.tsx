@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Modal, Form, Table, Badge, OverlayTrigger, Tooltip, Alert, Row, Col } from 'react-bootstrap';
+import { Container, Button, Modal, Form, Table, Badge, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
 
 // URL del Backend
 const API_URL = 'http://localhost:3000'; 
@@ -37,17 +37,15 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
   const [clientes, setClientes] = useState<MarketingCliente[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ... otros estados ...
-  
-  // 👇 NUEVOS ESTADOS PARA EDICIÓN BÁSICA
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingClientData, setEditingClientData] = useState<MarketingCliente | null>(null);
-
   // Estados para Crear Cliente
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newClientData, setNewClientData] = useState({
     nombre_centro: '', directivo_nombre: '', directivo_tel: '', estudiante_nombre: '', estudiante_tel: ''
   });
+
+  // Estados para Editar Info Básica
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingClientData, setEditingClientData] = useState<MarketingCliente | null>(null);
 
   // Estado para EDICIÓN RÁPIDA (El Clic en el Puntito)
   const [quickEdit, setQuickEdit] = useState<{
@@ -86,7 +84,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
       fetchClientes();
     } catch (error) { alert("Error al crear"); }
   };
-// 👇 FUNCIÓN PARA GUARDAR LOS CAMBIOS DE INFO BÁSICA
+
   const handleUpdateBasicInfo = async () => {
     if (!editingClientData) return;
     try {
@@ -104,7 +102,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
       
       if (res.ok) {
         setShowEditModal(false);
-        fetchClientes(); // Recargar la tabla
+        fetchClientes(); 
       } else {
         alert("Error al actualizar");
       }
@@ -112,7 +110,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
       console.error("Error updating client", error);
     }
   };
-  // --- LÓGICA DE ACTUALIZACIÓN ---
+
   const updateEvento = async (clienteId: number, eventoKey: string, payload: any) => {
     try {
         const res = await fetch(`${API_URL}/marketing/${clienteId}/${eventoKey}`, {
@@ -120,32 +118,26 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        if (res.ok) fetchClientes(); // Recargar tabla para ver el cambio de color
+        if (res.ok) fetchClientes(); 
     } catch (error) { console.error("Error updating", error); }
   };
 
-  // --- EL CEREBRO DE LOS COLORES (ALGORITMO DE ESTADO) 🧠 ---
   const getCellStatus = (data: EstadoEvento | undefined) => {
-    // 1. Si no existe data o no hay fecha de evento -> GRIS (Bloqueado)
     if (!data || !data.fecha_realizacion) return 'gris';
 
-    // 2. Verificar si todo está completo
     const todoListo = data.web_subida && data.redes_trabajadas && data.encuesta_directivo && data.encuesta_estudiante;
     if (todoListo) return 'verde';
 
-    // 3. Si falta algo, calculamos si estamos TARDE
     const fechaEvento = new Date(data.fecha_realizacion).getTime();
     const hoy = new Date().getTime();
     const diffDias = Math.ceil((hoy - fechaEvento) / (1000 * 3600 * 24));
 
-    // Regla: Si pasaron más de 2 días y no está listo -> ROJO. Si no -> AMARILLO
     if (diffDias > 2) return 'rojo';
     return 'amarillo';
   };
 
-  // Renderizador de Puntitos
   const renderDot = (status: string, onClick: () => void) => {
-    let color = '#e9ecef'; // Gris
+    let color = '#e9ecef'; 
     let title = 'Sin Iniciar';
     
     if (status === 'verde') { color = '#28a745'; title = 'Completado'; }
@@ -167,7 +159,6 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
     );
   };
 
-  // --- LISTA DE EVENTOS ---
   const eventosCols = [
     { key: 'combos', label: '📸 Combos' },
     { key: 'lanzamiento', label: '🚀 Lanzamiento' },
@@ -179,8 +170,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
   return (
     <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh', paddingBottom: '50px' }}>
       
-      {/* HEADER TIPO TORRE DE CONTROL */}
-      <div className="text-white p-3 shadow-sm mb-4" style={{ backgroundColor: '#563d7c' }}> {/* Un morado más oscuro y serio */}
+      <div className="text-white p-3 shadow-sm mb-4" style={{ backgroundColor: '#563d7c' }}>
         <Container fluid className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-3">
                 <Button variant="outline-light" size="sm" onClick={onBack}>⬅ Volver</Button>
@@ -192,6 +182,9 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
       </div>
 
       <Container fluid>
+        {/* Usamos la variable loading aquí para que TS no se queje */}
+        {loading && <div className="text-center py-3 text-muted">Cargando datos...</div>}
+
         <div className="bg-white rounded shadow-sm p-3">
           <Table hover responsive className="align-middle text-center mb-0">
             <thead className="bg-light text-secondary">
@@ -201,13 +194,12 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                 </tr>
             </thead>
             <tbody>
-                {clientes.length === 0 ? (
+                {!loading && clientes.length === 0 ? (
                     <tr><td colSpan={6} className="text-center py-5 text-muted">No hay datos. ¡Crea el primer centro!</td></tr>
                 ) : (
                     clientes.map(cliente => (
                         <tr key={cliente.id}>
                             <td className="text-start ps-3">
-                                {/* 👇 AQUÍ ESTÁ EL CAMBIO: Usamos Flexbox para poner el nombre y el lápiz juntos */}
                                 <div className="d-flex align-items-center justify-content-between">
                                     <div>
                                         <div className="fw-bold text-dark">{cliente.nombre_centro}</div>
@@ -216,23 +208,20 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* ✏️ BOTÓN DE EDITAR */}
                                     <Button 
                                         variant="link" 
                                         size="sm" 
                                         className="text-muted p-0 ms-2"
                                         style={{ textDecoration: 'none' }}
                                         onClick={() => {
-                                            setEditingClientData(cliente); // Guardamos cual vamos a editar
-                                            setShowEditModal(true);        // Abrimos la ventana
+                                            setEditingClientData(cliente);
+                                            setShowEditModal(true);
                                         }}
                                     >
                                         ✏️
                                     </Button>
                                 </div>
                             </td>
-
-                            {/* El resto de las columnas (los puntitos) sigue igual */}
                             {eventosCols.map(col => {
                                 const data = cliente.eventos_data[col.key as keyof typeof cliente.eventos_data];
                                 const status = getCellStatus(data);
@@ -250,15 +239,12 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
         </div>
       </Container>
 
-      {/* ========================================= */}
-      {/* MODAL DE EDICIÓN RÁPIDA (EL MINI POP-UP) */}
-      {/* ========================================= */}
+      {/* MODAL DE EDICIÓN RÁPIDA */}
       <Modal show={quickEdit !== null} onHide={() => setQuickEdit(null)} centered size="sm">
         {quickEdit && (() => {
-            // 👇 CORRECCIÓN CLAVE: Buscamos siempre el dato más FRESCO de la lista principal
-            // Así, cuando guardes, el botón cambiará de color instantáneamente.
             const clienteFresco = clientes.find(c => c.id === quickEdit.cliente.id) || quickEdit.cliente;
-            const data = clienteFresco.eventos_data[quickEdit.eventoKey as keyof typeof clienteFresco.eventos_data] || {};
+            // 👇 AQUÍ ESTABA EL ERROR: Agregamos 'as EstadoEvento' para que TS entienda el objeto vacío
+            const data = (clienteFresco.eventos_data[quickEdit.eventoKey as keyof typeof clienteFresco.eventos_data] || {}) as EstadoEvento;
             
             const isLocked = !data.fecha_realizacion;
 
@@ -271,7 +257,6 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                         </Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        {/* 1. SECCIÓN FECHA (CANDADO) */}
                         <Form.Group className="mb-3">
                             <Form.Label className="small fw-bold">📅 Fecha del Evento</Form.Label>
                             <Form.Control 
@@ -282,14 +267,12 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                                 onChange={(e) => {
                                     if(window.confirm("¿Confirmas la fecha? Esto activará el semáforo.")) {
                                         updateEvento(clienteFresco.id, quickEdit.eventoKey, { fecha_realizacion: e.target.value });
-                                        // Aquí NO cerramos el modal, para que veas cómo se desbloquean los botones mágicamente
                                     }
                                 }}
                             />
                             {isLocked && <small className="text-muted d-block mt-1">Ingresa fecha para desbloquear tareas.</small>}
                         </Form.Group>
 
-                        {/* 2. SECCIÓN TAREAS (SOLO SI HAY FECHA) */}
                         {!isLocked && (
                             <div className="d-grid gap-2">
                                 <Button 
@@ -343,7 +326,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
         })()}
       </Modal>
 
-      {/* Modal Crear (Mismo de antes) */}
+      {/* MODAL CREAR */}
       <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
         <Modal.Header closeButton><Modal.Title>Registrar Nuevo Centro</Modal.Title></Modal.Header>
         <Modal.Body>
@@ -357,12 +340,11 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
             <Button variant="primary" onClick={handleCreate}>Guardar</Button>
         </Modal.Footer>
       </Modal>
-{/* ========================================= */}
-      {/* MODAL DE EDITAR INFORMACIÓN BÁSICA ✏️ */}
-      {/* ========================================= */}
+
+      {/* MODAL EDITAR INFO BÁSICA */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
         <Modal.Header closeButton className="bg-warning bg-opacity-10">
-            <Modal.Title>✏️ Editar Información del Centro</Modal.Title>
+            <Modal.Title>✏️ Editar Información</Modal.Title>
         </Modal.Header>
         <Modal.Body>
             {editingClientData && (
@@ -377,44 +359,28 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                     <Row>
                         <Col>
                             <Form.Group className="mb-2">
-                                <Form.Label className="small text-muted">Nombre Directivo</Form.Label>
-                                <Form.Control 
-                                    size="sm"
-                                    value={editingClientData.directivo_nombre || ''} 
-                                    onChange={e => setEditingClientData({...editingClientData, directivo_nombre: e.target.value})} 
-                                />
+                                <Form.Label className="small text-muted">Directivo</Form.Label>
+                                <Form.Control size="sm" value={editingClientData.directivo_nombre || ''} onChange={e => setEditingClientData({...editingClientData, directivo_nombre: e.target.value})} />
                             </Form.Group>
                         </Col>
                         <Col>
                             <Form.Group className="mb-2">
-                                <Form.Label className="small text-muted">Teléfono Directivo</Form.Label>
-                                <Form.Control 
-                                    size="sm"
-                                    value={editingClientData.directivo_tel || ''} 
-                                    onChange={e => setEditingClientData({...editingClientData, directivo_tel: e.target.value})} 
-                                />
+                                <Form.Label className="small text-muted">Tel. Directivo</Form.Label>
+                                <Form.Control size="sm" value={editingClientData.directivo_tel || ''} onChange={e => setEditingClientData({...editingClientData, directivo_tel: e.target.value})} />
                             </Form.Group>
                         </Col>
                     </Row>
                     <Row>
                         <Col>
                             <Form.Group className="mb-2">
-                                <Form.Label className="small text-muted">Nombre Estudiante</Form.Label>
-                                <Form.Control 
-                                    size="sm"
-                                    value={editingClientData.estudiante_nombre || ''} 
-                                    onChange={e => setEditingClientData({...editingClientData, estudiante_nombre: e.target.value})} 
-                                />
+                                <Form.Label className="small text-muted">Estudiante</Form.Label>
+                                <Form.Control size="sm" value={editingClientData.estudiante_nombre || ''} onChange={e => setEditingClientData({...editingClientData, estudiante_nombre: e.target.value})} />
                             </Form.Group>
                         </Col>
                         <Col>
                             <Form.Group className="mb-2">
-                                <Form.Label className="small text-muted">Teléfono Estudiante</Form.Label>
-                                <Form.Control 
-                                    size="sm"
-                                    value={editingClientData.estudiante_tel || ''} 
-                                    onChange={e => setEditingClientData({...editingClientData, estudiante_tel: e.target.value})} 
-                                />
+                                <Form.Label className="small text-muted">Tel. Estudiante</Form.Label>
+                                <Form.Control size="sm" value={editingClientData.estudiante_tel || ''} onChange={e => setEditingClientData({...editingClientData, estudiante_tel: e.target.value})} />
                             </Form.Group>
                         </Col>
                     </Row>
@@ -426,6 +392,7 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
             <Button variant="warning" onClick={handleUpdateBasicInfo}>Guardar Cambios</Button>
         </Modal.Footer>
       </Modal>
+
     </div>
   );
 };
