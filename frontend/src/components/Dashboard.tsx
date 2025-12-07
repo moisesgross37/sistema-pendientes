@@ -3,7 +3,8 @@
 // Incluye la lógica para subir archivos por cada caso.
 
 import { useState, useEffect, useRef } from 'react';
-import type { AppView } from '../App'; // <--- AÑADIR ESTO
+import type { AppView } from '../App';
+import { MarketingPanel } from './MarketingPanel';
 import { jwtDecode } from 'jwt-decode';
 import {
   Button,
@@ -98,6 +99,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [success, setSuccess] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showMarketing, setShowMarketing] = useState(false);
 // 1. Para capturar el cambio de estado
   const [nuevoEstadoCaso, setNuevoEstadoCaso] = useState<Record<number, number>>({});
   
@@ -1151,6 +1153,12 @@ const handleDeletePendiente = async () => {
   // ===== 🚀 INICIO DEL RENDERIZADO JSX 🚀 =====
   // ================================================================
 
+  // 👇👇👇 MISIÓN 1: EL DESVÍO (PEGAR ESTO AQUÍ) 👇👇👇
+  if (showMarketing) {
+    return <MarketingPanel onBack={() => setShowMarketing(false)} />;
+  }
+  // 👆👆👆 --------------------------------------- 👆👆👆
+
   return (
     <div>
       {/* Botón Admin y Cabecera */}
@@ -1163,12 +1171,24 @@ const handleDeletePendiente = async () => {
           Gestionar Usuarios
         </Button>
       )}
-      <h2>Dashboard Principal</h2>
+
+      {/* 👇👇👇 MISIÓN 2: EL BOTÓN (PEGAR ESTO AQUÍ) 👇👇👇 */}
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2>Dashboard Principal</h2>
+        <Button 
+          variant="warning" 
+          className="fw-bold shadow-sm"
+          onClick={() => setShowMarketing(true)}
+        >
+          📢 Modo Marketing
+        </Button>
+      </div>
+      {/* 👆👆👆 ------------------------------------ 👆👆👆 */}
+
       <p>
         ¡Bienvenido! Has iniciado sesión como: <strong>{userRole}</strong>
       </p>
       <hr />
-
       {/* Alertas Globales de Error y Éxito */}
       {error && (
         <Alert variant="danger" onClose={() => setError('')} dismissible>
