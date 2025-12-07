@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ServeStaticModule } from '@nestjs/serve-static'; // <--- 1. IMPORTANTE: LA LLAVE MAESTRA
-import { join } from 'path'; // <--- 2. NECESARIO PARA RUTAS
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { PendientesModule } from './pendientes/pendientes.module';
 import { AuthModule } from './auth/auth.module';
 import { CasosModule } from './casos/casos.module';
+import { MarketingModule } from './marketing/marketing.module'; // ✅ Importado correctamente
 
 @Module({
   imports: [
@@ -22,20 +23,19 @@ import { CasosModule } from './casos/casos.module';
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
       autoLoadEntities: true,
       synchronize: true,
+      // ❌ AQUÍ NO VA MarketingModule (Lo quité de aquí)
     }),
 
-    // 👇👇👇 AQUÍ ESTÁ LA SOLUCIÓN DEL ERROR 404 👇👇👇
-    // Esto le dice al servidor: "Deja que cualquiera vea los archivos en la carpeta uploads"
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'), // Busca la carpeta uploads en la raíz del proyecto
-      serveRoot: '/uploads', // Define la URL pública (ej: tudominio.com/uploads/foto.jpg)
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
     }),
-    // 👆👆👆 FIN DE LA SOLUCIÓN 👆👆👆
 
     UsuariosModule,
     PendientesModule,
     AuthModule,
     CasosModule,
+    MarketingModule, // ✅ AQUÍ SÍ VA (En la lista principal de imports)
   ],
   controllers: [AppController],
   providers: [AppService],
