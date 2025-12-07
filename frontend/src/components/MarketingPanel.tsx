@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Modal, Form, Table, Badge, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
 
 // URL del Backend
-const API_URL = 'http://localhost:3000'; 
+const API_URL = 'https://sistema-pendientes-1.onrender.com';
 
 // --- INTERFACES DE DATOS ---
 interface EstadoEvento {
