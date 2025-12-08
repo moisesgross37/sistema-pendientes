@@ -396,3 +396,4 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
     </div>
   );
 };
+// Fin del archivo
