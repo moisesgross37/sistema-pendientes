@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { MarketingCliente } from './entities/marketing-cliente.entity'; // Asegúrate de haber creado la entidad en el paso anterior
+import { MarketingCliente } from './entities/marketing-cliente.entity';
 import { CreateMarketingDto } from './dto/create-marketing.dto';
+// 👇 1. Faltaba importar esto:
+import { CentroEducativo } from './entities/centro-educativo.entity';
 
 @Injectable()
 export class MarketingService {
   constructor(
     @InjectRepository(MarketingCliente)
     private marketingRepository: Repository<MarketingCliente>,
+    @InjectRepository(CentroEducativo)
+    private centrosRepository: Repository<CentroEducativo>,
   ) {}
 
   // 1. Crear un nuevo cliente de Marketing
@@ -34,7 +38,8 @@ export class MarketingService {
     if (!cliente) throw new NotFoundException(`Cliente #${id} no encontrado`);
     return cliente;
   }
-  // 👇 AGREGAR ESTO EN EL SERVICIO
+
+  // 3.5 Actualizar Info Básica
   async update(id: number, updateDto: any) {
     const cliente = await this.findOne(id);
     // Actualizamos los campos básicos que nos envíen
@@ -43,7 +48,6 @@ export class MarketingService {
   }
 
   // 4. ACTUALIZAR UN EVENTO (El Cerebro del Candado y Semáforo) 🧠
-  // Recibe: id del cliente, nombre del evento (ej: 'combos') y los datos a actualizar
   async updateEvento(id: number, eventoKey: string, datos: any) {
     const cliente = await this.findOne(id);
 
@@ -59,7 +63,6 @@ export class MarketingService {
     }
 
     // Actualizamos solo los campos que nos enviaron (Merge)
-    // Esto permite actualizar solo la fecha_realizacion sin borrar los links, o viceversa
     cliente.eventos_data[eventoKey] = {
         ...cliente.eventos_data[eventoKey],
         ...datos
@@ -70,5 +73,40 @@ export class MarketingService {
     cliente.eventos_data = copia;
 
     return this.marketingRepository.save(cliente);
+  } 
+  // 👆 AQUÍ TERMINA updateEvento. ¡Importante cerrar la llave antes de seguir!
+
+  // ---------------------------------------------------------
+  // 👇 AQUÍ EMPIEZAN LAS NUEVAS FUNCIONES (Fuera de las anteriores)
+  // ---------------------------------------------------------
+
+  // 5. FUNCIÓN PARA COSECHAR NOMBRES DE COLEGIOS EXISTENTES
+  async sincronizarCentros() {
+    // 1. Obtener todos los clientes actuales
+    const clientes = await this.marketingRepository.find();
+    let contados = 0;
+
+    // 2. Recorrer cada cliente
+    for (const cliente of clientes) {
+      const nombreLimpio = cliente.nombre_centro.trim();
+
+      // 3. Verificar si ya existe en la lista maestra
+      const existe = await this.centrosRepository.findOne({ where: { nombre: nombreLimpio } });
+
+      // 4. Si no existe, lo creamos
+      if (!existe && nombreLimpio.length > 0) {
+        const nuevoCentro = this.centrosRepository.create({ nombre: nombreLimpio });
+        await this.centrosRepository.save(nuevoCentro);
+        contados++;
+      }
+    }
+
+    return { mensaje: 'Sincronización completada', nuevos_centros_guardados: contados };
   }
-}
+
+  // 6. FUNCIÓN PARA OBTENER LA LISTA (PARA EL BUSCADOR)
+  async findAllCentros() {
+    return this.centrosRepository.find({ order: { nombre: 'ASC' } });
+  }
+
+} // <--- FINAL DE LA CLASE
