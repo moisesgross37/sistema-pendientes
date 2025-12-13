@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { AppView } from '../App';
 import { MarketingPanel } from './MarketingPanel';
 import { jwtDecode } from 'jwt-decode';
+import CreatableSelect from 'react-select/creatable';
 import {
   Button,
   Table,
@@ -200,7 +201,32 @@ function Dashboard({ token, setView }: DashboardProps) {
       // Opcional: setError(err.message);
     }
   };
+// ======================================================
+  // 🧠 LÓGICA DEL BUSCADOR INTELIGENTE (AUTOCOMPLETE) 🧠
+  // ======================================================
+  const [centroOptions, setCentroOptions] = useState<{value: string, label: string}[]>([]);
 
+  // Cargar la lista maestra cuando se abre el modal de crear
+  useEffect(() => {
+    if (showCreateForm) {
+      const fetchCentros = async () => {
+        try {
+          // Asegúrate de que API_URL esté definido en tu archivo (debería estarlo)
+          // Si no, usa: 'https://sistema-pendientes.onrender.com'
+          const res = await fetch(`${API_URL}/marketing/lista-centros`);
+          if (res.ok) {
+            const data = await res.json();
+            // Formateamos para que el buscador lo entienda
+            const options = data.map((c: any) => ({ value: c.nombre, label: c.nombre }));
+            setCentroOptions(options);
+          }
+        } catch (error) {
+          console.error("Error cargando lista de centros", error);
+        }
+      };
+      fetchCentros();
+    }
+  }, [showCreateForm]);
   // ==============================================================
   // 2. FUNCIÓN FETCH USERS (Con Auto-Logout)
   // ==============================================================
@@ -1515,17 +1541,42 @@ const handleDeletePendiente = async () => {
             1. Detalles del Proyecto
           </h6>
           
-          {/* CAMPO 1: NOMBRE */}
+          {/* CAMPO 1: BUSCADOR INTELIGENTE DE CENTRO */}
           <Form.Group className="mb-3">
             <Form.Label className="fw-bold">Nombre del Centro / Proyecto</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Ej: Politécnico Félix María Ruiz"
-              value={newNombreCentro}
-              onChange={(e) => setNewNombreCentro(e.target.value)}
-              required
-              size="lg"
+            
+            {/* 👇 AQUÍ ESTÁ EL CAMBIO IMPORTANTE 👇 */}
+            <CreatableSelect
+              isClearable
+              placeholder="Escribe para buscar o crear uno nuevo..."
+              options={centroOptions}
+              isDisabled={isLoading}
+              
+              // 1. Si seleccionas uno de la lista
+              onChange={(option) => setNewNombreCentro(option ? option.value : '')}
+              
+              // 2. Si escribes uno nuevo que no existe
+              onCreateOption={(inputValue) => setNewNombreCentro(inputValue)}
+              
+              // 3. Controlar el valor visual
+              value={newNombreCentro ? { label: newNombreCentro, value: newNombreCentro } : null}
+              
+              // Estilos para que se vea integrado con Bootstrap (opcional pero recomendado)
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  borderColor: '#dee2e6',
+                  minHeight: '48px', // Tamaño lg
+                  fontSize: '1.1rem'
+                }),
+              }}
+              
+              // Texto de ayuda para crear
+              formatCreateLabel={(inputValue) => `Crear nuevo centro: "${inputValue}"`}
             />
+            <Form.Text className="text-muted small">
+              * Busca en la lista histórica o escribe un nombre nuevo para registrarlo.
+            </Form.Text>
           </Form.Group>
 
           {/* CAMPO 2: SELECTOR DE ÁREA (Auto-asignación) */}
