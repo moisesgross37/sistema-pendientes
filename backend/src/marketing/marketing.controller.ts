@@ -7,48 +7,37 @@ export class MarketingController {
   constructor(private readonly marketingService: MarketingService) {}
 
   // =========================================================
-  // 👇 1. LAS RUTAS ESPECÍFICAS VAN PRIMERO (Para evitar conflictos)
+  // 👇 1. RUTAS ESPECÍFICAS (VAN PRIMERO)
   // =========================================================
 
-  // OBTENER LISTA DE CENTROS (Para el buscador)
+  // LISTA LIMPIA (Para usuarios - Solo visibles)
   @Get('lista-centros')
   getCentros() {
     return this.marketingService.findAllCentros();
   }
 
-  // DISPARADOR DE SINCRONIZACIÓN
-  // Le puse @Get temporalmente para que puedas probarlo en el navegador
+  // LISTA COMPLETA (Para Admin - Todos)
+  @Get('admin/lista-centros')
+  getCentrosAdmin() {
+    return this.marketingService.findAllCentrosAdmin();
+  }
+
+  // INTERRUPTOR VISIBILIDAD
+  @Patch('admin/centro/:id/toggle')
+  toggleCentro(@Param('id') id: string) {
+    return this.marketingService.toggleVisibilidadCentro(+id);
+  }
+
+  // SINCRONIZADOR (Cosecha)
   @Get('sincronizar') 
   sincronizar() {
     return this.marketingService.sincronizarCentros();
   }
 
   // =========================================================
-  // 👇 2. LAS RUTAS GENÉRICAS VAN DESPUÉS
+  // 👇 2. RUTAS GENÉRICAS (VAN DESPUÉS)
   // =========================================================
-// ... (dentro de la clase MarketingController) ...
 
-  // 1. LISTA LIMPIA (La que usa tu Buscador de Pendientes)
-  // Solo devuelve los visibles
-  @Get('lista-centros')
-  getCentros() {
-    return this.marketingService.findAllCentros();
-  }
-
-  // 👇 2. LISTA COMPLETA (Para tu Panel de Limpieza - Admin)
-  // Devuelve TODO (visibles y ocultos)
-  @Get('admin/lista-centros')
-  getCentrosAdmin() {
-    return this.marketingService.findAllCentrosAdmin();
-  }
-
-  // 👇 3. INTERRUPTOR (Para apagar/prender un centro)
-  @Patch('admin/centro/:id/toggle')
-  toggleCentro(@Param('id') id: string) {
-    return this.marketingService.toggleVisibilidadCentro(+id);
-  }
-
-  // ... (el resto sigue igual)
   @Post()
   create(@Body() createDto: CreateMarketingDto) {
     return this.marketingService.create(createDto);
@@ -59,8 +48,7 @@ export class MarketingController {
     return this.marketingService.findAll();
   }
 
-  // Ojo: Esta ruta ':id' es la "glotona". Si la pones arriba, se come a 'sincronizar'.
-  // Por eso debe ir aquí abajo.
+  // BUSCAR POR ID (Esta ruta es "glotona", debe ir casi al final)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.marketingService.findOne(+id);
