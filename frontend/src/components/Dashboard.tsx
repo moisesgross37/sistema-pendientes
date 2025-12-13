@@ -7,6 +7,7 @@ import type { AppView } from '../App';
 import { MarketingPanel } from './MarketingPanel';
 import { jwtDecode } from 'jwt-decode';
 import CreatableSelect from 'react-select/creatable';
+import { AdminCentros } from "./AdminCentros";
 import {
   Button,
   Table,
@@ -101,6 +102,7 @@ function Dashboard({ token, setView }: DashboardProps) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showMarketing, setShowMarketing] = useState(false);
+  const [showAdminCentros, setShowAdminCentros] = useState(false);
 // 1. Para capturar el cambio de estado
   const [nuevoEstadoCaso, setNuevoEstadoCaso] = useState<Record<number, number>>({});
   
@@ -1183,19 +1185,41 @@ const handleDeletePendiente = async () => {
   if (showMarketing) {
     return <MarketingPanel onBack={() => setShowMarketing(false)} />;
   }
+  if (showAdminCentros) {
+    return (
+      <div className="p-3">
+        <Button variant="outline-secondary" className="mb-3" onClick={() => setShowAdminCentros(false)}>
+          ⬅ Volver al Dashboard
+        </Button>
+        <AdminCentros />
+      </div>
+    );
+  }
   // 👆👆👆 --------------------------------------- 👆👆👆
 
   return (
     <div>
-      {/* Botón Admin y Cabecera */}
+      {/* Botones de Zona Administrativa */}
       {userRole === 'Administrador' && (
-        <Button
-          variant="secondary"
-          onClick={() => setView('admin')}
-          className="mb-3"
-        >
-          Gestionar Usuarios
-        </Button>
+        <div className="d-flex gap-2 mb-3 p-3 bg-light rounded border">
+          <Button
+            variant="secondary"
+            onClick={() => setView('admin')}
+          >
+            <i className="bi bi-people-fill me-2"></i>
+            Gestionar Usuarios
+          </Button>
+
+          {/* 👇 EL BOTÓN NUEVO 👇 */}
+          <Button
+            variant="info"
+            className="text-white"
+            onClick={() => setShowAdminCentros(true)}
+          >
+            <i className="bi bi-eraser-fill me-2"></i>
+            Limpiar Nombres Centros
+          </Button>
+        </div>
       )}
 
       {/* 👇👇👇 MISIÓN 2: EL BOTÓN (PEGAR ESTO AQUÍ) 👇👇👇 */}
