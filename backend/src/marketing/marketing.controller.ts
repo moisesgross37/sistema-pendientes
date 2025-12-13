@@ -26,7 +26,29 @@ export class MarketingController {
   // =========================================================
   // 👇 2. LAS RUTAS GENÉRICAS VAN DESPUÉS
   // =========================================================
+// ... (dentro de la clase MarketingController) ...
 
+  // 1. LISTA LIMPIA (La que usa tu Buscador de Pendientes)
+  // Solo devuelve los visibles
+  @Get('lista-centros')
+  getCentros() {
+    return this.marketingService.findAllCentros();
+  }
+
+  // 👇 2. LISTA COMPLETA (Para tu Panel de Limpieza - Admin)
+  // Devuelve TODO (visibles y ocultos)
+  @Get('admin/lista-centros')
+  getCentrosAdmin() {
+    return this.marketingService.findAllCentrosAdmin();
+  }
+
+  // 👇 3. INTERRUPTOR (Para apagar/prender un centro)
+  @Patch('admin/centro/:id/toggle')
+  toggleCentro(@Param('id') id: string) {
+    return this.marketingService.toggleVisibilidadCentro(+id);
+  }
+
+  // ... (el resto sigue igual)
   @Post()
   create(@Body() createDto: CreateMarketingDto) {
     return this.marketingService.create(createDto);

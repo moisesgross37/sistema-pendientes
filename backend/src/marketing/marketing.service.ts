@@ -101,7 +101,25 @@ export class MarketingService {
     };
   }
 
+  // --- 6. OBTENER LISTA LIMPIA (Solo para el Buscador del Usuario) ---
   async findAllCentros() {
+    return this.centrosRepository.find({ 
+      where: { visible: true }, // 👈 EL FILTRO DE SEGURIDAD
+      order: { nombre: 'ASC' } 
+    });
+  }
+
+  // --- 7. OBTENER TODO (Para tu Panel de Limpieza) ---
+  async findAllCentrosAdmin() {
     return this.centrosRepository.find({ order: { nombre: 'ASC' } });
+  }
+
+  // --- 8. EL INTERRUPTOR (Apagar/Prender) ---
+  async toggleVisibilidadCentro(id: number) {
+    const centro = await this.centrosRepository.findOneBy({ id });
+    if (!centro) throw new NotFoundException('Centro no encontrado');
+    
+    centro.visible = !centro.visible; // Invertir valor (True -> False)
+    return this.centrosRepository.save(centro);
   }
 }

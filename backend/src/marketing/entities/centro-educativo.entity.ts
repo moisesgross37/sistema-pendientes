@@ -10,4 +10,8 @@ export class CentroEducativo {
 
   @CreateDateColumn()
   fecha_creacion: Date;
+
+  @Column({ default: true })
+  visible: boolean;
+
 }
