@@ -29,7 +29,6 @@ import { Usuario } from './usuarios/entities/usuario.entity';
       autoLoadEntities: true,
       
       // 💣 LIMPIEZA TOTAL ACTIVADA
-      dropSchema: true, 
       synchronize: true,
     }),
 
