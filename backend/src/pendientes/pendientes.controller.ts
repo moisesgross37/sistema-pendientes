@@ -22,35 +22,42 @@ import { CreatePendienteDto } from './dto/create-pendiente.dto';
 import { UpdatePendienteDto } from './dto/update-pendiente.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { extname, join } from 'path';
+import { extname, join, resolve } from 'path'; // Agregamos resolve
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { Usuario } from '../usuarios/entities/usuario.entity';
+
 // -------------------------------------------------------
-// 🛑 CONSTANTE FIJA: SIN AUTO-DETECTAR
-// OBLIGAMOS a usar el disco persistente de Render
-const UPLOAD_PATH = '/var/data'; 
+// 🧠 CONFIGURACIÓN DINÁMICA (INTELIGENTE)
+// Si existe la variable en .env (Local), úsala. Si no, usa Render (/var/data).
 // -------------------------------------------------------
+const ENV_PATH = process.env.STORAGE_PATH; 
+const UPLOAD_PATH = ENV_PATH ? resolve(ENV_PATH) : '/var/data';
 
 @Controller('pendientes')
 export class PendientesController {
   private readonly logger = new Logger(PendientesController.name);
 
   constructor(private readonly pendientesService: PendientesService) {
-    this.logger.log(`🚧 MODO FUERZA BRUTA ACTIVADO`);
-    this.logger.log(`🎯 Destino OBLIGATORIO: ${UPLOAD_PATH}`);
+    this.logger.log(`🚧 INICIANDO GESTOR DE ARCHIVOS`);
+    this.logger.log(`🎯 Ruta detectada: ${UPLOAD_PATH}`);
     
     // Verificación inicial al arrancar
     try {
-        if (fs.existsSync(UPLOAD_PATH)) {
-            this.logger.log('✅ La carpeta /var/data existe y es accesible.');
-            // Prueba de escritura al inicio
-            fs.writeFileSync(`${UPLOAD_PATH}/test_inicio.txt`, 'Hola desde el arranque');
-        } else {
-            this.logger.error('❌ ¡ALERTA! /var/data NO existe. El disco no está montado.');
+        if (!fs.existsSync(UPLOAD_PATH)) {
+            this.logger.warn(`⚠️ La carpeta ${UPLOAD_PATH} no existe. Creándola automáticamente...`);
+            fs.mkdirSync(UPLOAD_PATH, { recursive: true });
         }
+        
+        // Prueba de escritura para asegurar permisos
+        const testFile = join(UPLOAD_PATH, 'test_permisos.txt');
+        fs.writeFileSync(testFile, 'Sistema listo para recibir fotos.');
+        this.logger.log('✅ Sistema de archivos VERIFICADO y LISTO.');
+        
     } catch (e) {
-        this.logger.error(`❌ Error verificando disco: ${e.message}`);
+        this.logger.error(`❌ Error crítico en disco: ${e.message}`);
     }
   }
 
@@ -65,18 +72,12 @@ export class PendientesController {
     }
 
     const uploadedFilesInfo: any[] = [];
-    this.logger.log(`📥 Intentando guardar ${files.length} archivos en ${UPLOAD_PATH}...`);
+    this.logger.log(`📥 Recibiendo ${files.length} archivos para guardar en: ${UPLOAD_PATH}`);
 
     try {
-        // Si la carpeta no existe, intentamos crearla (aunque debería ser el disco)
-        if (!fs.existsSync(UPLOAD_PATH)) {
-            fs.mkdirSync(UPLOAD_PATH, { recursive: true });
-        }
-
         files.forEach((file) => {
-            // Validar que tenemos datos
             if (!file.buffer) {
-                this.logger.error(`❌ El archivo ${file.originalname} llegó sin contenido (buffer vacío).`);
+                this.logger.error(`❌ Archivo vacío: ${file.originalname}`);
                 return;
             }
 
@@ -87,15 +88,16 @@ export class PendientesController {
             const filename = `${randomName}${extname(file.originalname)}`;
             const fullPath = join(UPLOAD_PATH, filename);
 
-            // ESCRIBIR (Sync para asegurar)
+            // ESCRIBIR ARCHIVO
             fs.writeFileSync(fullPath, file.buffer); 
 
-            // CHIVATO: Verificar si se escribió
+            // Verificar tamaño
             const stats = fs.statSync(fullPath);
-            this.logger.log(`💾 GUARDADO OK: ${filename} (${stats.size} bytes)`);
+            this.logger.log(`💾 GUARDADO: ${filename} (${stats.size} bytes)`);
 
             const protocol = req.protocol;
             const host = req.get('host');
+            // Nota: Aquí construimos la URL pública para acceder luego
             const baseUrl = `${protocol}://${host}/pendientes/uploads`;
 
             uploadedFilesInfo.push({
@@ -105,32 +107,44 @@ export class PendientesController {
             });
         });
 
-        // AUDITORÍA: Listar qué hay en la carpeta ahora mismo
-        const directoryContents = fs.readdirSync(UPLOAD_PATH);
-        this.logger.log(`📂 CONTENIDO ACTUAL DE /var/data: [${directoryContents.join(', ')}]`);
-
         return uploadedFilesInfo;
 
     } catch (error) {
-        this.logger.error(`☠️ ERROR CRÍTICO: ${error.message}`, error.stack);
+        this.logger.error(`☠️ ERROR AL GUARDAR: ${error.message}`, error.stack);
         throw new HttpException('Error guardando archivos', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  // GET /pendientes/uploads/:filename
-  @Get('uploads/:filename')
-  serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    const fullPath = join(UPLOAD_PATH, filename);
+  // ========================================================
+  // 📸 VISOR DE IMÁGENES (INTELIGENCIA HÍBRIDA MAC/NUBE)
+  // ========================================================
+  @Get('uploads/:img')
+  serveFile(@Param('img') img: string, @Res() res: Response) {
     
-    if (fs.existsSync(fullPath)) {
-        res.sendFile(filename, { root: UPLOAD_PATH });
-    } else {
-        this.logger.warn(`🔍 404 - Se buscó: ${fullPath} y no estaba.`);
-        res.status(404).json({ message: 'Imagen no encontrada' });
+    // 1. INTENTO LOCAL (Para tu Mac)
+    // Busca en la carpeta 'uploads' dentro de la raiz del proyecto
+    const rutaLocal = join(process.cwd(), 'uploads', img);
+
+    // 2. INTENTO NUBE (Para Render)
+    // Busca en la carpeta del sistema /var/data
+    const rutaNube = join('/var/data', img);
+
+    // 🕵️‍♂️ DETECTIVE DE ARCHIVOS
+    if (fs.existsSync(rutaLocal)) {
+        // ¡La encontré en tu Mac!
+        return res.sendFile(rutaLocal);
+    } 
+    else if (fs.existsSync(rutaNube)) {
+        // ¡La encontré en la Nube!
+        return res.sendFile(rutaNube);
+    } 
+    else {
+        // ❌ No está en ningún lado
+        return res.status(404).json({ message: 'Imagen no encontrada en el servidor' });
     }
   }
 
-  // --- RESTO DE MÉTODOS ---
+  // --- RESTO DE MÉTODOS (SIN CAMBIOS) ---
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createPendienteDto: CreatePendienteDto) {
@@ -139,8 +153,8 @@ export class PendientesController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.pendientesService.findAll();
+  findAll(@GetUser() user: Usuario) { 
+    return this.pendientesService.findAll(user); 
   }
 
   @UseGuards(JwtAuthGuard)

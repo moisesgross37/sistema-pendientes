@@ -8,7 +8,12 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { PendientesModule } from './pendientes/pendientes.module';
 import { AuthModule } from './auth/auth.module';
 import { CasosModule } from './casos/casos.module';
-import { MarketingModule } from './marketing/marketing.module'; // ✅ Importado correctamente
+import { MarketingModule } from './marketing/marketing.module';
+import { ServiciosModule } from './servicios/servicios.module';
+import { ActivacionesModule } from './activaciones/activaciones.module'; 
+
+// 👇 1. IMPORTACIÓN OBLIGATORIA (Asegúrate que esta línea exista arriba)
+import { Usuario } from './usuarios/entities/usuario.entity';
 
 @Module({
   imports: [
@@ -18,16 +23,22 @@ import { MarketingModule } from './marketing/marketing.module'; // ✅ Importado
       host: process.env.DATABASE_URL ? undefined : 'localhost',
       port: process.env.DATABASE_URL ? undefined : 5432,
       username: process.env.DATABASE_URL ? undefined : 'moisesgross',
-      password: process.env.DATABASE_URL ? undefined : 'tu_contraseña',
+      password: process.env.DATABASE_URL ? undefined : 'tu_contraseña', // Revisa que esto sea correcto en local
       database: process.env.DATABASE_URL ? undefined : 'pendientes_db',
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
       autoLoadEntities: true,
+      
+      // 💣 LIMPIEZA TOTAL ACTIVADA
+      dropSchema: true, 
       synchronize: true,
-      // ❌ AQUÍ NO VA MarketingModule (Lo quité de aquí)
     }),
 
+    // 👇 2. PERMISO OBLIGATORIO (Sin esto, AppService falla al crear el Admin)
+    TypeOrmModule.forFeature([Usuario]), 
+
+    // 📸 FOTOS HÍBRIDAS
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
+      rootPath: process.env.RENDER_DISK_PATH || join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
     }),
 
@@ -35,10 +46,11 @@ import { MarketingModule } from './marketing/marketing.module'; // ✅ Importado
     PendientesModule,
     AuthModule,
     CasosModule,
-    MarketingModule, // ✅ AQUÍ SÍ VA (En la lista principal de imports)
+    MarketingModule,
+    ServiciosModule,
+    ActivacionesModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-// prueba

@@ -1,6 +1,7 @@
 // backend/src/casos/entities/caso.entity.ts
 
 import { Pendiente } from '../../pendientes/entities/pendiente.entity';
+import { Usuario } from '../../usuarios/entities/usuario.entity'; // 👈 1. IMPORTAR USUARIO
 import {
   Column,
   CreateDateColumn,
@@ -18,11 +19,12 @@ export class Caso {
   @Column()
   descripcion: string;
 
-  // --- ⭐ NUEVA COLUMNA AGREGADA (SOLUCIÓN DEL ERROR) ⭐ ---
-  // Aquí se guardará el link de la evidencia que subas (PDF/Imagen)
+  @Column({ nullable: true })
+  tipo_servicio: string;
+
+  // Link de la evidencia (PDF/Imagen) subida por el colaborador
   @Column({ nullable: true })
   archivoUrl: string;
-  // --------------------------------------------------------
 
   @ManyToOne(() => EstadoCaso, (estado) => estado.casos, {
     eager: true,
@@ -36,6 +38,16 @@ export class Caso {
   @CreateDateColumn()
   fechaCreacion: Date;
 
+  // --- ⏱️ NUEVAS COLUMNAS DE MÉTRICAS (RELOJ AUTOMÁTICO) ⏱️ ---
+  
+  @Column({ type: 'timestamp', nullable: true })
+  fecha_inicio: Date; // Se llenará sola cuando pases a "En Proceso"
+
+  @Column({ type: 'timestamp', nullable: true })
+  fecha_fin: Date;    // Se llenará sola cuando pases a "Completado"
+
+  // ------------------------------------------------------------
+
   @Column({ type: 'text', nullable: true })
   comentario: string | null;
 
@@ -43,4 +55,11 @@ export class Caso {
     onDelete: 'CASCADE', 
   })
   pendiente: Pendiente;
+
+  // --- 👤 NUEVA COLUMNA DE RESPONSABLE INDIVIDUAL (MICRO-GESTIÓN) 👤 ---
+  
+  @ManyToOne(() => Usuario, { nullable: true })
+  responsable: Usuario; // Aquí guardamos si el caso lo tiene Jesús o Juan
+  
+  // --------------------------------------------------------------------
 }

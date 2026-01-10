@@ -1,6 +1,5 @@
 // frontend/src/components/AdminPage.tsx
-// ARCHIVO COMPLETO Y CORREGIDO
-// (Incluye el modal 'Eliminar' y la lógica para 'Resetear Clave')
+// BLOQUE 1: Configuración, Estados y Carga Inicial
 
 import { useState, useEffect } from 'react';
 import type { AppView } from '../App';
@@ -18,10 +17,21 @@ import {
   Modal,
 } from 'react-bootstrap';
 
-// --- Constante de la URL de la API (para desarrollo local) ---
-const API_URL = import.meta.env.VITE_API_URL;
+// --- Constantes ---
+const DEPARTAMENTOS_DISPONIBLES = [
+  'Artes', 
+  'Impresion', 
+  'Colector',       // 👈 Antes era 'Logistica' (Solución al problema de tildes)
+  'Retoque', 
+  'Marketing', 
+  'Ventas',
+  'Inventario',     // 🆕 Nuevo
+  'Administracion', // 🆕 Nuevo
+  'Coordinacion'    // 🆕 Nuevo
+];
 
-// --- Interfaces (sin cambios) ---
+const API_URL = import.meta.env.VITE_API_URL;
+// --- Interfaces ---
 interface AdminPageProps {
   token: string;
   setView: (view: AppView) => void;
@@ -33,36 +43,48 @@ interface Usuario {
   nombreCompleto: string;
   rol: string;
   isActive: boolean;
+  departamentos?: string[]; // 👈 AGREGADO: Para que TypeScript reconozca las insignias
 }
 
 function AdminPage({ token, setView }: AdminPageProps) {
+  // 1. Estados Generales
   const [users, setUsers] = useState<Usuario[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Estados para el formulario de "Añadir Nuevo"
+  // 2. Estados para "Crear Usuario"
   const [newNombreCompleto, setNewNombreCompleto] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRol, setNewRol] = useState('Asesor');
+  
+  // 3. Estados para Departamentos (Insignias)
+  const [selectedDeptos, setSelectedDeptos] = useState<string[]>([]);
 
-  // Estado para el modal de borrado
+  // 4. Estados para Modales (Borrar, Resetear Clave, Editar Rol)
   const [deletingUsuario, setDeletingUsuario] = useState<Usuario | null>(null);
-
-  // --- 👇 1. ESTADOS PARA RESETEAR CLAVE (Paso 28.1) ---
+  
   const [resettingUsuario, setResettingUsuario] = useState<Usuario | null>(null);
   const [newResetPassword, setNewResetPassword] = useState('');
-  // --- 👆 ---
+  
   const [editingRolUsuario, setEditingRolUsuario] = useState<Usuario | null>(null);
   const [selectedRolUpdate, setSelectedRolUpdate] = useState('');
 
-  // Cargar usuarios al iniciar
+  // --- Helper para marcar/desmarcar casillas de departamentos ---
+  const toggleDepto = (depto: string) => {
+    if (selectedDeptos.includes(depto)) {
+      setSelectedDeptos(selectedDeptos.filter(d => d !== depto));
+    } else {
+      setSelectedDeptos([...selectedDeptos, depto]);
+    }
+  };
+
+  // --- Carga Inicial ---
   useEffect(() => {
     fetchUsers();
   }, [token]);
 
-  // --- (fetchUsers, handleCreateUser... sin cambios) ---
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
@@ -82,7 +104,10 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
-// --- FUNCIÓN PARA GUARDAR EL CAMBIO DE ROL (CON SELECTOR) ---
+// frontend/src/components/AdminPage.tsx
+// BLOQUE 2: Manejadores de Eventos (Guardar, Crear, Resetear, Borrar)
+
+  /// --- FUNCIÓN MEJORADA: GUARDAR ROL E INSIGNIAS ---
   const handleSaveNewRol = async () => {
     if (!editingRolUsuario) return;
 
@@ -91,26 +116,31 @@ function AdminPage({ token, setView }: AdminPageProps) {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/usuarios/${editingRolUsuario.id}/rol`, {
+      // 👇 CAMBIO IMPORTANTE: Usamos la ruta general (PATCH /usuarios/:id)
+      // Esta ruta ya está preparada en el backend para recibir 'rol' y 'departamentos'
+      const res = await fetch(`${API_URL}/usuarios/${editingRolUsuario.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ rol: selectedRolUpdate }), // Enviamos el rol seleccionado
+        body: JSON.stringify({ 
+            rol: selectedRolUpdate,
+            departamentos: selectedDeptos // 👈 ¡Ahora sí enviamos las insignias!
+        }), 
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.message || 'No se pudo actualizar el rol.');
+        throw new Error(errData.message || 'No se pudo actualizar el usuario.');
       }
 
-      setSuccess(`Rol de "${editingRolUsuario.username}" actualizado a: ${selectedRolUpdate}`);
-      fetchUsers(); // Recargamos la tabla
+      setSuccess(`Usuario "${editingRolUsuario.username}" actualizado correctamente.`);
+      fetchUsers(); // Recargamos la tabla para ver los cambios
       
-      // Cerramos el modal
       setEditingRolUsuario(null);
       setSelectedRolUpdate('');
+      setSelectedDeptos([]);
 
     } catch (err: any) {
       setError(err.message);
@@ -118,6 +148,8 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
+
+  // --- 👇 CREAR USUARIO (AQUÍ AGREGAMOS LOS DEPARTAMENTOS) ---
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -142,6 +174,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
           username: newUsername,
           password: newPassword,
           rol: newRol,
+          departamentos: selectedDeptos, // 👈 ¡AGREGADO! Enviamos las insignias
         }),
       });
 
@@ -151,10 +184,13 @@ function AdminPage({ token, setView }: AdminPageProps) {
       }
 
       setSuccess(`¡Usuario "${newUsername}" creado con éxito!`);
+      // Limpiamos el formulario
       setNewNombreCompleto('');
       setNewUsername('');
       setNewPassword('');
       setNewRol('Asesor');
+      setSelectedDeptos([]); // 👈 ¡AGREGADO! Limpiamos los checkboxes
+      
       fetchUsers();
     } catch (err: any) {
       setError(err.message);
@@ -162,7 +198,8 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
-    const handleUpdateEstado = async (id: number, isActive: boolean) => {
+
+  const handleUpdateEstado = async (id: number, isActive: boolean) => {
     const nuevoEstado = !isActive;
     setError('');
     setSuccess('');
@@ -187,7 +224,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
     }
   };
   
-  // --- 👇 2. LÓGICA DE RESETEAR CLAVE ACTUALIZADA (Paso 28.3) ---
+  // --- LÓGICA DE RESETEAR CLAVE ---
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault(); 
 
@@ -229,9 +266,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
-  // --- 👆 ---
 
-  // --- (handleDeleteUser... sin cambios, ya está bien) ---
   const handleDeleteUser = async () => {
     if (!deletingUsuario) return;
     const id = deletingUsuario.id;
@@ -260,48 +295,31 @@ function AdminPage({ token, setView }: AdminPageProps) {
       setIsLoading(false);
     }
   };
-
-  // --- JSX (HTML) del componente ---
+// --- JSX (HTML) COMPLETO Y DEFINITIVO ---
   return (
-    <Container>
-      {/* (Botones de navegación) */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1em',
-        }}
-      >
-        <button onClick={() => setView('dashboard')}>
+    <Container className="py-4">
+      
+      {/* 1. HEADER DE NAVEGACIÓN */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <Button variant="outline-secondary" onClick={() => setView('dashboard')}>
           &larr; Volver al Dashboard
-        </button>
-        <button
-          onClick={() => setView('admin-estados')}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-          }}
-        >
+        </Button>
+        <Button variant="success" onClick={() => setView('admin-estados')}>
           Gestionar Estados de Casos &rarr;
-        </button>
+        </Button>
       </div>
 
-      <h2>Gestión de Usuarios</h2>
+      <h2 className="mb-3 fw-bold text-dark">Gestión de Usuarios</h2>
       
       {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
       {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
 
-      {/* (Formulario de Creación) */}
-      <Card className="mb-4">
+      {/* 2. FORMULARIO DE CREACIÓN (CON CHECKBOXES NUEVOS) */}
+      <Card className="mb-4 shadow-sm">
+        <Card.Header className="bg-primary text-white fw-bold">Añadir Nuevo Usuario</Card.Header>
         <Card.Body>
-          <Card.Title>Añadir Nuevo Usuario</Card.Title>
           <Form onSubmit={handleCreateUser}>
-            <Row>
+            <Row className="g-3">
               <Col md={3}>
                 <Form.Group>
                   <Form.Label>Nombre Completo</Form.Label>
@@ -326,9 +344,9 @@ function AdminPage({ token, setView }: AdminPageProps) {
                   />
                 </Form.Group>
               </Col>
-              <Col md={2}>
+              <Col md={3}>
                 <Form.Group>
-                  <Form.Label>Contraseña Temporal</Form.Label>
+                  <Form.Label>Contraseña</Form.Label>
                   <Form.Control 
                     type="password" 
                     value={newPassword}
@@ -337,7 +355,7 @@ function AdminPage({ token, setView }: AdminPageProps) {
                   />
                 </Form.Group>
               </Col>
-              <Col md={2}>
+              <Col md={3}>
                 <Form.Group>
                   <Form.Label>Rol</Form.Label>
                   <Form.Select
@@ -352,9 +370,32 @@ function AdminPage({ token, setView }: AdminPageProps) {
                   </Form.Select>
                 </Form.Group>
               </Col>
-              <Col md={2} className="d-flex align-items-end">
-                <Button variant="success" type="submit" className="w-100" disabled={isLoading}>
-                  {isLoading ? <Spinner animation="border" size="sm" /> : 'Crear Usuario'}
+            </Row>
+
+            {/* 👇 NUEVO: SECCIÓN DE DEPARTAMENTOS AL CREAR 👇 */}
+            <Row className="mt-3">
+              <Col md={12}>
+                <Form.Label className="fw-bold text-muted small">Insignias / Departamentos Técnicos</Form.Label>
+                <div className="d-flex flex-wrap gap-2 p-2 border rounded bg-light">
+                  {DEPARTAMENTOS_DISPONIBLES.map((depto) => (
+                    <Form.Check
+                      key={depto}
+                      type="checkbox"
+                      id={`create-check-${depto}`}
+                      label={depto}
+                      checked={selectedDeptos.includes(depto)}
+                      onChange={() => toggleDepto(depto)}
+                      className="me-2"
+                    />
+                  ))}
+                </div>
+              </Col>
+            </Row>
+
+            <Row className="mt-3">
+              <Col className="d-flex justify-content-end">
+                <Button variant="primary" type="submit" disabled={isLoading} className="px-4">
+                  {isLoading ? <Spinner animation="border" size="sm" /> : '+ Crear Usuario'}
                 </Button>
               </Col>
             </Row>
@@ -362,220 +403,214 @@ function AdminPage({ token, setView }: AdminPageProps) {
         </Card.Body>
       </Card>
 
-      {/* --- 👇 PEGA ESTE BLOQUE COMPLETO DESDE AQUÍ HASTA EL FINAL --- */}
+      {/* 3. TABLA DE USUARIOS (CON COLUMNA INSIGNIAS) */}
+      <Card className="shadow-sm border-0">
+        <Card.Body className="p-0">
+          <Table striped hover responsive className="mb-0 align-middle">
+            <thead className="bg-light">
+              <tr>
+                <th>Nombre</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Insignias / Deptos</th> {/* Nueva Columna */}
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td className="fw-medium">{user.nombreCompleto}</td>
+                  <td>{user.username}</td>
+                  <td><Badge bg="info" className="text-dark">{user.rol}</Badge></td>
+                  <td>
+                    {/* Renderizamos las insignias */}
+                    {user.departamentos && user.departamentos.length > 0 ? (
+                      <div className="d-flex gap-1 flex-wrap">
+                        {user.departamentos.map((d, i) => (
+                          <Badge key={i} bg="secondary" style={{fontSize: '0.65rem'}}>{d}</Badge>
+                        ))}
+                      </div>
+                    ) : <span className="text-muted small">-</span>}
+                  </td>
+                  <td>
+                    <Badge bg={user.isActive ? 'success' : 'secondary'}>
+                      {user.isActive ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <div className="d-flex gap-1">
+                      <Button 
+                        variant="outline-primary" 
+                        size="sm" 
+                        onClick={() => {
+                           setEditingRolUsuario(user);
+                           setSelectedRolUpdate(user.rol);
+                           setSelectedDeptos(user.departamentos || []); // 👈 Cargamos sus deptos actuales
+                        }}
+                        title="Editar Rol e Insignias"
+                      >
+                        <i className="bi bi-pencil"></i>
+                      </Button>
+                      
+                      <Button 
+                        variant="outline-warning" 
+                        size="sm" 
+                        onClick={() => handleUpdateEstado(user.id, user.isActive)}
+                        title={user.isActive ? "Desactivar" : "Activar"}
+                      >
+                        <i className={`bi ${user.isActive ? 'bi-toggle-on' : 'bi-toggle-off'}`}></i>
+                      </Button>
 
-      <h4>Usuarios Actuales</h4>
-      <Table striped bordered hover responsive>
-        <thead>
-          <tr>
-            <th>Nombre Completo</th>
-            <th>Nombre de Usuario</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td>{user.nombreCompleto}</td>
-              <td>{user.username}</td>
-              <td>{user.rol}</td>
-              <td>
-                <Badge bg={user.isActive ? 'success' : 'secondary'}>
-                  {user.isActive ? 'Activo' : 'Inactivo'}
-                </Badge>
-              </td>
-              <td>
-                <Button 
-  variant="outline-primary" 
-  size="sm" 
-  className="me-2"
-  onClick={() => {
-     setEditingRolUsuario(user);   // Guardamos el usuario
-     setSelectedRolUpdate(user.rol); // Pre-seleccionamos su rol actual
-  }}
->
-  Editar Rol
-</Button>
-                <Button 
-                  variant="outline-warning" 
-                  size="sm" 
-                  className="me-2"
-                  onClick={() => handleUpdateEstado(user.id, user.isActive)}
-                >
-                  {user.isActive ? 'Desactivar' : 'Activar'}
-                </Button>
-                {/* --- BOTÓN DE RESETEAR CLAVE CONECTADO (Paso 28.2) --- */}
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm" 
-                  className="me-2"
-                  onClick={() => setResettingUsuario(user)}
-                >
-                  Resetear Clave
-                </Button>
-                {/* --- BOTÓN DE BORRADO CONECTADO (Paso 27.2) --- */}
-                <Button 
-                  variant="outline-danger" 
-                  size="sm"
-                  onClick={() => setDeletingUsuario(user)}
-                >
-                  Eliminar
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+                      <Button 
+                        variant="outline-dark" 
+                        size="sm" 
+                        onClick={() => setResettingUsuario(user)}
+                        title="Resetear Clave"
+                      >
+                        <i className="bi bi-key"></i>
+                      </Button>
 
-      {/* ================================================================ */}
-      {/* ===== 🚀 MODAL DE CONFIRMACIÓN DE BORRADO DE USUARIO 🚀 ===== */}
-      {/* ================================================================ */}
+                      <Button 
+                        variant="outline-danger" 
+                        size="sm"
+                        onClick={() => setDeletingUsuario(user)}
+                        title="Eliminar"
+                      >
+                        <i className="bi bi-trash"></i>
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+
+      {/* 4. MODAL DE ELIMINACIÓN */}
       <Modal show={deletingUsuario !== null} onHide={() => setDeletingUsuario(null)} centered>
-        <Modal.Header closeButton>
+        <Modal.Header closeButton className="bg-danger text-white">
           <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Alert variant="danger">
+          <Alert variant="danger" className="border-0 bg-danger bg-opacity-10">
             <p>¿Estás seguro de que quieres eliminar este usuario?</p>
             <hr />
-            <p className="mb-0">
-              <strong>{deletingUsuario?.nombreCompleto} ({deletingUsuario?.username})</strong>
+            <p className="mb-0 fw-bold text-center fs-5">
+              {deletingUsuario?.nombreCompleto} <span className="fw-normal fs-6">({deletingUsuario?.username})</span>
             </p>
           </Alert>
-          <p className="text-muted">
-            Esta acción no se puede deshacer. 
-            (No podrás eliminarlo si está asignado a algún proyecto).
+          <p className="text-muted small text-center mb-0">
+            Esta acción es irreversible.
           </p>
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="secondary" 
-            onClick={() => setDeletingUsuario(null)} 
-            disabled={isLoading}
-          >
+          <Button variant="secondary" onClick={() => setDeletingUsuario(null)} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button 
-            variant="danger" 
-            onClick={handleDeleteUser} 
-            disabled={isLoading}
-          >
-            {isLoading ? 'Eliminando...' : 'Confirmar Eliminación'}
+          <Button variant="danger" onClick={handleDeleteUser} disabled={isLoading}>
+            {isLoading ? 'Eliminando...' : 'Sí, Eliminar'}
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* ================================================================ */}
-      {/* ===== 🚀 NUEVO MODAL DE RESETEAR CLAVE (Paso 28.4) 🚀 ===== */}
-      {/* ================================================================ */}
+      {/* 5. MODAL DE RESETEAR CLAVE */}
       <Modal 
         show={resettingUsuario !== null} 
         onHide={() => {
           setResettingUsuario(null);
-          setNewResetPassword(''); // Resetea la clave al cerrar
-          setError(''); // Limpia errores
+          setNewResetPassword('');
+          setError('');
         }} 
         centered
       >
         <Form onSubmit={handleResetPassword}>
           <Modal.Header closeButton>
-            <Modal.Title>
-              Resetear Contraseña para: {resettingUsuario?.username}
-            </Modal.Title>
+            <Modal.Title>Resetear Clave: {resettingUsuario?.username}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            
-            {/* Mostramos errores DENTRO del modal */}
             {error && <Alert variant="danger">{error}</Alert>}
-            
             <Form.Group>
-              <Form.Label>Nueva Contraseña</Form.Label>
+              <Form.Label>Nueva Contraseña Temporal</Form.Label>
               <Form.Control
                 type="password"
-                placeholder="Escribe la nueva clave"
+                placeholder="Escribe la nueva clave..."
                 value={newResetPassword}
                 onChange={(e) => setNewResetPassword(e.target.value)}
                 disabled={isLoading}
-                autoFocus // Pone el cursor aquí automáticamente
+                autoFocus
               />
             </Form.Group>
-            
           </Modal.Body>
           <Modal.Footer>
-            <Button 
-              variant="secondary" 
-              onClick={() => {
-                setResettingUsuario(null);
-                setNewResetPassword('');
-                setError('');
-              }} 
-              disabled={isLoading}
-            >
+            <Button variant="secondary" onClick={() => setResettingUsuario(null)} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button 
-              variant="success" // Usamos verde para "Guardar"
-              type="submit" 
-              disabled={isLoading}
-            >
-              {isLoading ? 'Guardando...' : 'Guardar Nueva Contraseña'}
+            <Button variant="warning" type="submit" disabled={isLoading}>
+              {isLoading ? 'Guardando...' : 'Confirmar Cambio'}
             </Button>
           </Modal.Footer>
         </Form>
       </Modal>
-{/* ================================================================ */}
-      {/* ===== 🚀 MODAL DE CAMBIO DE ROL (SELECTOR) 🚀 ===== */}
-      {/* ================================================================ */}
+
+      {/* 6. MODAL DE CAMBIO DE ROL + INSIGNIAS (MEJORADO) */}
       <Modal 
         show={editingRolUsuario !== null} 
         onHide={() => setEditingRolUsuario(null)} 
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Cambiar Rol de Usuario</Modal.Title>
+          <Modal.Title>Editar Usuario: {editingRolUsuario?.username}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>
-            Usuario: <strong>{editingRolUsuario?.nombreCompleto}</strong> <br/>
-            Rol Actual: <Badge bg="secondary">{editingRolUsuario?.rol}</Badge>
-          </p>
-          
-          <Form.Group>
-            <Form.Label className="fw-bold">Selecciona el Nuevo Rol:</Form.Label>
+          <div className="mb-3">
+            <label className="fw-bold mb-1">Rol Principal</label>
             <Form.Select
               value={selectedRolUpdate}
               onChange={(e) => setSelectedRolUpdate(e.target.value)}
-              size="lg"
             >
               <option value="Administrador">Administrador</option>
-              <option value="Coordinador">Coordinador</option> {/* <--- AQUÍ ESTÁ EL NUEVO */}
+              <option value="Coordinador">Coordinador</option>
               <option value="Colaborador">Colaborador</option>
               <option value="Asesor">Asesor</option>
             </Form.Select>
-          </Form.Group>
+          </div>
+
+          {/* 👇 AQUÍ INSERTAMOS LOS CHECKBOXES TAMBIÉN EN EL MODAL 👇 */}
+          <div className="mb-3">
+             <label className="fw-bold mb-1 text-muted small">Insignias / Departamentos</label>
+             <div className="d-flex flex-wrap gap-2 p-2 border rounded bg-light">
+                {DEPARTAMENTOS_DISPONIBLES.map((depto) => (
+                  <Form.Check
+                    key={depto}
+                    type="checkbox"
+                    id={`edit-check-${depto}`}
+                    label={depto}
+                    checked={selectedDeptos.includes(depto)}
+                    onChange={() => toggleDepto(depto)}
+                  />
+                ))}
+             </div>
+             <Form.Text className="text-muted small">
+               * Nota: Por ahora, al guardar aquí solo se actualiza el ROL. 
+               (Requiere actualizar el endpoint del backend para guardar insignias en edición).
+             </Form.Text>
+          </div>
 
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="secondary" 
-            onClick={() => setEditingRolUsuario(null)} 
-            disabled={isLoading}
-          >
+          <Button variant="secondary" onClick={() => setEditingRolUsuario(null)} disabled={isLoading}>
             Cancelar
           </Button>
-          <Button 
-            variant="primary" 
-            onClick={handleSaveNewRol} 
-            disabled={isLoading}
-          >
-            {isLoading ? 'Guardando...' : 'Guardar Cambio'}
+          <Button variant="primary" onClick={handleSaveNewRol} disabled={isLoading}>
+            {isLoading ? 'Guardando...' : 'Guardar Cambios'}
           </Button>
         </Modal.Footer>
       </Modal>
-    </Container> // <-- 1. Cierre del Container (Arregla el error 521)
-    ); // <-- 2. Cierre del return
-} // <-- 3. Cierre de la función AdminPage
+
+    </Container>
+  );
+}
 
 export default AdminPage;

@@ -6,7 +6,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   OneToMany,
-} from 'typeorm'; // (Nota: quité UpdateDateColumn si no se usaba, o puedes dejarlo)
+} from 'typeorm'; 
 import { Caso } from '../../casos/entities/caso.entity';
 
 @Entity({ name: 'pendientes' })
@@ -27,20 +27,13 @@ export class Pendiente {
   nombreCentro: string;
 
   @Column({ nullable: true })
-  area: string; // Ej: 'General', 'Impresion', 'Admin'
+  area: string; // Ej: 'General', 'Impresion', 'Admin', 'Marketing', 'Logistica'
 
   @Column({ nullable: true })
   descripcion: string;
 
   @Column({
-    type: 'enum',
-    enum: [
-      'Por Asignar',
-      'Iniciado',
-      'Fuera de oficina',
-      'Concluido',
-      'En administración',
-    ],
+    type: 'text', // 👈 CAMBIO: Ahora es texto libre, acepta todo
     default: 'Por Asignar',
   })
   status: string;
@@ -51,9 +44,8 @@ export class Pendiente {
   @Column({ type: 'simple-array', nullable: true })
   imagenes?: string[];
 
-  // --- 👇 AQUÍ ESTÁ LA NUEVA BITÁCORA (HISTORIAL) ---
-  // Usamos 'jsonb' para guardar la lista de movimientos dentro del mismo pendiente
-  // sin tener que crear una tabla extra. Es perfecto para auditoría.
+  // --- BITÁCORA (HISTORIAL) ---
+  // Usamos 'jsonb' para guardar la lista de movimientos
   @Column('jsonb', { nullable: true, default: [] })
   historial: { 
     fecha: Date; 
@@ -61,7 +53,23 @@ export class Pendiente {
     accion: string; 
     nota: string; 
   }[];
-  // --- 👆 ------------------------------------------
+
+  // =================================================================
+  // 📍 FASE 1.2: SIEMBRA AUTOMÁTICA (CAMPOS DEL MAPA ORIENTE)
+  // =================================================================
+
+  @Column({ default: false }) 
+  esHito: boolean;
+
+  @Column({ nullable: true }) 
+  eventoKey: string; // Ej: '1' (Combos), '5' (Graduación)
+
+  @Column({ nullable: true }) 
+  tipoHito: string; // Ej: 'RECOLECCION', 'ENCUESTA'
+
+  // =================================================================
+
+  // --- RELACIONES ---
 
   @ManyToOne(() => Usuario, { eager: true })
   asesor: Usuario;

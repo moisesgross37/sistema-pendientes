@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Modal, Form, Table, Badge, OverlayTrigger, Tooltip, Row, Col } from 'react-bootstrap';
 
 // URL del Backend
-// Dirección CORRECTA (Cerebro)
 const API_URL = 'https://sistema-pendientes.onrender.com';
 
 // --- INTERFACES DE DATOS ---
@@ -123,27 +122,43 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
     } catch (error) { console.error("Error updating", error); }
   };
 
-  const getCellStatus = (data: EstadoEvento | undefined) => {
+  // -----------------------------------------------------------
+  // 🧠 LÓGICA DEL SEMÁFORO (ACTUALIZADA)
+  // -----------------------------------------------------------
+  const getCellStatus = (data: EstadoEvento | undefined): 'gris' | 'verde' | 'rojo' | 'amarillo' => {
+    // 1. Gris: No existe el evento o no tiene fecha definida (candado cerrado)
     if (!data || !data.fecha_realizacion) return 'gris';
 
+    // 2. Verde: Si TODAS las tareas tienen fecha registrada
     const todoListo = data.web_subida && data.redes_trabajadas && data.encuesta_directivo && data.encuesta_estudiante;
     if (todoListo) return 'verde';
 
-    const fechaEvento = new Date(data.fecha_realizacion).getTime();
-    const hoy = new Date().getTime();
-    const diffDias = Math.ceil((hoy - fechaEvento) / (1000 * 3600 * 24));
+    // 3. Calcular Atraso
+    const fechaEvento = new Date(data.fecha_realizacion);
+    // Normalizar a medianoche para comparar solo fechas sin horas
+    fechaEvento.setHours(0,0,0,0);
+    // A veces la conversión de string a date resta un día por timezone, añadimos corrección UTC si es necesario
+    // pero para simplicidad, asumimos que fechaEvento es la correcta del día.
+    
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
 
-    if (diffDias > 2) return 'rojo';
+    // Rojo: Si HOY es después de la fecha del evento y NO está listo
+    if (hoy.getTime() > fechaEvento.getTime()) {
+        return 'rojo';
+    }
+
+    // Amarillo: Si tiene fecha, no ha vencido, pero faltan cosas
     return 'amarillo';
   };
 
   const renderDot = (status: string, onClick: () => void) => {
-    let color = '#e9ecef'; 
+    let color = '#e9ecef'; // Gris default
     let title = 'Sin Iniciar';
     
     if (status === 'verde') { color = '#28a745'; title = 'Completado'; }
     if (status === 'amarillo') { color = '#ffc107'; title = 'En Proceso'; }
-    if (status === 'rojo') { color = '#dc3545'; title = 'Tardío / Atención'; }
+    if (status === 'rojo') { color = '#dc3545'; title = '¡Atrasado!'; }
 
     return (
       <OverlayTrigger overlay={<Tooltip>{title}</Tooltip>}>
@@ -153,7 +168,8 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                 width: '24px', height: '24px', borderRadius: '50%', 
                 backgroundColor: color, margin: '0 auto', cursor: 'pointer',
                 border: '2px solid rgba(0,0,0,0.1)',
-                boxShadow: status === 'rojo' || status === 'amarillo' ? '0 0 5px rgba(0,0,0,0.2)' : 'none'
+                boxShadow: status === 'rojo' || status === 'amarillo' ? '0 0 8px rgba(0,0,0,0.2)' : 'none',
+                animation: status === 'rojo' ? 'pulse 2s infinite' : 'none'
             }}
         />
       </OverlayTrigger>
@@ -183,7 +199,6 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
       </div>
 
       <Container fluid>
-        {/* Usamos la variable loading aquí para que TS no se queje */}
         {loading && <div className="text-center py-3 text-muted">Cargando datos...</div>}
 
         <div className="bg-white rounded shadow-sm p-3">
@@ -240,13 +255,13 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
         </div>
       </Container>
 
-      {/* MODAL DE EDICIÓN RÁPIDA */}
+      {/* MODAL DE EDICIÓN RÁPIDA (Tareas) */}
       <Modal show={quickEdit !== null} onHide={() => setQuickEdit(null)} centered size="sm">
         {quickEdit && (() => {
             const clienteFresco = clientes.find(c => c.id === quickEdit.cliente.id) || quickEdit.cliente;
-            // 👇 AQUÍ ESTABA EL ERROR: Agregamos 'as EstadoEvento' para que TS entienda el objeto vacío
             const data = (clienteFresco.eventos_data[quickEdit.eventoKey as keyof typeof clienteFresco.eventos_data] || {}) as EstadoEvento;
             
+            // Si NO hay fecha, está bloqueado (isLocked = true)
             const isLocked = !data.fecha_realizacion;
 
             return (
@@ -264,14 +279,14 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
                                 type="date" 
                                 size="sm"
                                 value={data.fecha_realizacion ? String(data.fecha_realizacion).split('T')[0] : ''}
-                                disabled={!isLocked} 
+                                // Aquí permitimos editar si ya tiene fecha, pero pedimos confirmación
                                 onChange={(e) => {
-                                    if(window.confirm("¿Confirmas la fecha? Esto activará el semáforo.")) {
+                                    if(window.confirm("¿Confirmas la fecha? Esto actualizará el semáforo.")) {
                                         updateEvento(clienteFresco.id, quickEdit.eventoKey, { fecha_realizacion: e.target.value });
                                     }
                                 }}
                             />
-                            {isLocked && <small className="text-muted d-block mt-1">Ingresa fecha para desbloquear tareas.</small>}
+                            {isLocked && <small className="text-muted d-block mt-1">Ingresa fecha para activar tareas.</small>}
                         </Form.Group>
 
                         {!isLocked && (
@@ -397,4 +412,3 @@ export const MarketingPanel: React.FC<Props> = ({ onBack }) => {
     </div>
   );
 };
-// Fin del archivo

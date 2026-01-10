@@ -1,18 +1,29 @@
-import { IsString, IsNotEmpty, IsIn } from 'class-validator';
+import { IsString, MinLength, IsOptional, IsBoolean, IsArray } from 'class-validator';
 
 export class CreateUsuarioDto {
   @IsString()
-  @IsNotEmpty()
+  @MinLength(3)
   nombreCompleto: string;
 
   @IsString()
-  @IsNotEmpty()
+  @MinLength(4)
   username: string;
 
   @IsString()
-  @IsNotEmpty()
+  @MinLength(6)
   password: string;
 
-  @IsIn(['Administrador', 'Coordinador', 'Asesor', 'Colaborador'])
-  rol: string;
-}
+  @IsOptional()
+  @IsString()
+  rol?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true }) 
+  departamentos?: string[]; 
+} 
+// 👆 ¡ESTA LLAVE DEL FINAL ES LA QUE FALTABA!

@@ -25,8 +25,8 @@ import type { Request, Response } from 'express';
 import * as fs from 'fs';
 
 // -------------------------------------------------------
-// 🛑 CONSTANTE FIJA: LA MISMA QUE EN PENDIENTES
-const UPLOAD_PATH = join(process.cwd(), 'uploads'); 
+// 🧠 RUTA HÍBRIDA: En Nube usa '/var/data', en Local usa './uploads'
+const UPLOAD_PATH = process.env.RENDER_DISK_PATH || join(process.cwd(), 'uploads'); 
 // -------------------------------------------------------
 
 @Controller('casos')

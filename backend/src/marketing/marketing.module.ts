@@ -1,15 +1,26 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { MarketingService } from './marketing.service';
 import { MarketingController } from './marketing.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { MarketingCliente } from './entities/marketing-cliente.entity';
 import { CentroEducativo } from './entities/centro-educativo.entity';
-// 👇 1. IMPORTAR LA ENTIDAD PENDIENTE
 import { Pendiente } from '../pendientes/entities/pendiente.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
+// 👇 1. IMPORTAR CASO
+import { Caso } from '../casos/entities/caso.entity'; 
+import { EstadosCasosModule } from '../estados-casos/estados-casos.module'; // Importante para el estado inicial
 
 @Module({
-  // 👇 2. AGREGARLA AQUÍ AL ARRAY
-  imports: [TypeOrmModule.forFeature([MarketingCliente, CentroEducativo, Pendiente])],
+  imports: [
+    TypeOrmModule.forFeature([
+      MarketingCliente, 
+      CentroEducativo, 
+      Pendiente, 
+      Usuario,
+      Caso // 👈 2. AGREGAR AQUÍ
+    ]),
+    EstadosCasosModule // Necesario para buscar el estado "Pendiente"
+  ],
   controllers: [MarketingController],
   providers: [MarketingService],
 })

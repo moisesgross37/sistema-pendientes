@@ -1,22 +1,42 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Pendiente } from '../../pendientes/entities/pendiente.entity';
+import { Caso } from '../../casos/entities/caso.entity'; 
 
-@Entity({ name: 'usuarios' }) // Le decimos que la tabla en la BD se llamará "usuarios"
+@Entity('usuarios')
 export class Usuario {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  nombreCompleto: string;
-
-  @Column({ unique: true }) // ¡Importante! No puede haber dos usuarios con el mismo username
+  @Column({ unique: true })
   username: string;
 
+  // 👇 CORRECCIÓN: Lo dejamos como 'password' para no romper tu login
   @Column()
-  password: string; // Más adelante la vamos a encriptar, no te preocupes
+  password: string;
 
-  @Column({ default: 'Asesor' }) // Si no especificamos un rol, por defecto será 'Asesor'
-  rol: string;
+  @Column({ default: 'Colaborador' }) 
+  rol: string; 
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ default: true })
   isActive: boolean;
+
+  // 👇 ESTO ES LO NUEVO QUE QUEREMOS (INSIGNIAS)
+  @Column('simple-array', { nullable: true })
+  departamentos: string[];
+
+  // ----------------------------------------------------
+  // RELACIONES
+  // ----------------------------------------------------
+
+  @OneToMany(() => Pendiente, (pendiente) => pendiente.colaboradorAsignado)
+  asignaciones: Pendiente[];
+
+  @OneToMany(() => Pendiente, (pendiente) => pendiente.asesor)
+  asesorias: Pendiente[];
+
+  @OneToMany(() => Caso, (caso) => caso.responsable)
+  casosAsignados: Caso[];
+
+  @Column({ nullable: true })
+  nombreCompleto: string;
 }

@@ -1,100 +1,90 @@
-// backend/src/casos/casos.service.ts
-import {
-  Injectable,
-  NotFoundException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Caso } from './entities/caso.entity';
-import { Pendiente } from '../pendientes/entities/pendiente.entity';
 import { CreateCasoDto } from './dto/create-caso.dto';
 import { UpdateCasoDto } from './dto/update-caso.dto';
-import { EstadosCasosService } from '../estados-casos/estados-casos.service';
+import { EstadoCaso } from '../estados-casos/entities/estado-caso.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
 
 @Injectable()
 export class CasosService {
   constructor(
     @InjectRepository(Caso)
-    private casoRepository: Repository<Caso>,
-    @InjectRepository(Pendiente)
-    private pendienteRepository: Repository<Pendiente>,
-    private estadosCasosService: EstadosCasosService,
+    private readonly casosRepository: Repository<Caso>,
+    @InjectRepository(EstadoCaso)
+    private readonly estadosRepository: Repository<EstadoCaso>,
+    @InjectRepository(Usuario)
+    private readonly usuariosRepository: Repository<Usuario>,
   ) {}
 
-  // --- CREATE (Se queda igual, respetando tu lógica) ---
-  async create(createCasoDto: CreateCasoDto): Promise<Caso> {
-    const { pendienteId, descripcion } = createCasoDto;
-
-    const pendiente = await this.pendienteRepository.findOneBy({ id: pendienteId });
-    if (!pendiente) {
-      throw new NotFoundException(`Pendiente con ID ${pendienteId} no encontrado.`);
+  async create(createCasoDto: CreateCasoDto) {
+    const nuevoCaso = this.casosRepository.create(createCasoDto);
+    // Usamos 'any' temporal para asegurar compatibilidad al crear
+    if ((createCasoDto as any).estadoId) {
+      nuevoCaso.estado = { id: (createCasoDto as any).estadoId } as EstadoCaso;
     }
-
-    const estadoPendiente = await this.estadosCasosService.findOneByNombre('Pendiente');
-    if (!estadoPendiente) {
-      throw new InternalServerErrorException(
-        'El estado por defecto "Pendiente" no se encuentra en la base de datos.',
-      );
-    }
-
-    const nuevoCaso = this.casoRepository.create({
-      descripcion,
-      pendiente,
-      estado: estadoPendiente,
-    });
-    return this.casoRepository.save(nuevoCaso);
+    return this.casosRepository.save(nuevoCaso);
   }
 
-  // --- FIND ONE (Se queda igual) ---
-  async findOne(id: number): Promise<Caso> {
-    const caso = await this.casoRepository.findOne({
-      where: { id },
-      relations: ['estado', 'pendiente'],
+  async findAll() {
+    return this.casosRepository.find({
+      relations: ['estado', 'responsable'],
+      order: { id: 'DESC' },
     });
-    if (!caso) {
-      throw new NotFoundException(`Caso con ID ${id} no encontrado.`);
-    }
+  }
+
+  async findOne(id: number) {
+    const caso = await this.casosRepository.findOne({
+      where: { id },
+      relations: ['estado', 'responsable'],
+    });
+    if (!caso) throw new NotFoundException(`Caso #${id} no encontrado`);
     return caso;
   }
 
-  // --- ⭐ UPDATE ARREGLADO (AQUÍ ESTÁ LA SOLUCIÓN) ⭐ ---
-  async update(id: number, updateCasoDto: UpdateCasoDto): Promise<Caso> {
-    // Desestructuramos los datos que vienen del Controller
-    // Nota: archivoUrl viene "inyectado" desde el controller si se subió foto
-    const { estadoId, comentario, archivoUrl } = updateCasoDto as UpdateCasoDto & { archivoUrl?: string };
-
-    // 1. Cargar el caso actual
+  // 👇👇👇 AQUÍ ESTÁ LA LÓGICA DEL RELOJ Y EL PASE DE BOLA 👇👇👇
+  async update(id: number, updateCasoDto: UpdateCasoDto) {
     const caso = await this.findOne(id);
 
-    // 2. Manejar cambio de Estado (Tu lógica original intacta)
-    if (estadoId !== undefined) {
-      const nuevoEstado = await this.estadosCasosService.findOne(estadoId);
-      if (!nuevoEstado) {
-        throw new NotFoundException(`EstadoCaso con ID ${estadoId} no encontrado.`);
+    // 1. LÓGICA DE ESTADOS Y RELOJ ⏱️
+    if (updateCasoDto.estadoId) {
+      const nuevoEstadoId = Number(updateCasoDto.estadoId);
+      
+      // A. Si pasa a "EN PROCESO" (ID 2) y no tenía fecha de inicio...
+      // ¡ARRANCA EL RELOJ!
+      if (nuevoEstadoId === 2 && !caso.fecha_inicio) {
+           caso.fecha_inicio = new Date(); 
       }
-      caso.estado = nuevoEstado;
+
+      // B. Si pasa a "COMPLETADO" (ID 3)... ¡PARA EL RELOJ!
+      if (nuevoEstadoId === 3) {
+        caso.fecha_fin = new Date();
+      }
+
+      caso.estado = { id: nuevoEstadoId } as EstadoCaso;
     }
 
-    // 3. Manejar cambio de Comentario
-    if (comentario !== undefined) {
-      caso.comentario = comentario;
+    // 2. LÓGICA DE CAMBIO DE RESPONSABLE (RELEVOS) 👤
+    if (updateCasoDto.responsableId) {
+      caso.responsable = { id: Number(updateCasoDto.responsableId) } as Usuario;
     }
 
-    // 4. ⭐ Manejar cambio de Foto (LO NUEVO) ⭐
-    // Si el controller nos mandó una URL nueva, la guardamos en la base de datos
-    if (archivoUrl) {
-      caso.archivoUrl = archivoUrl;
+    // 3. ACTUALIZAR OTROS CAMPOS (Ahora sí existen en el DTO)
+    if (updateCasoDto.descripcion) caso.descripcion = updateCasoDto.descripcion;
+    if (updateCasoDto.tipo_servicio) caso.tipo_servicio = updateCasoDto.tipo_servicio;
+    if (updateCasoDto.archivoUrl) caso.archivoUrl = updateCasoDto.archivoUrl;
+    if (updateCasoDto.comentario) caso.comentario = updateCasoDto.comentario;
+    
+    if (updateCasoDto.imagenes) {
+       caso.imagenes = updateCasoDto.imagenes;
     }
 
-    // 5. Guardar cambios
-    return this.casoRepository.save(caso);
+    return this.casosRepository.save(caso);
   }
 
-  // --- REMOVE (Se queda igual) ---
-  async remove(id: number): Promise<{ message: string }> {
+  async remove(id: number) {
     const caso = await this.findOne(id);
-    await this.casoRepository.remove(caso);
-    return { message: `Caso #${id} eliminado.` };
+    return this.casosRepository.remove(caso);
   }
 }

@@ -1,115 +1,91 @@
 // backend/src/usuarios/usuarios.controller.ts
-// ARCHIVO COMPLETO Y CORREGIDO (Comentando los UseGuards)
+// ARCHIVO CORREGIDO Y COMPLETO ✅
 
 import {
   Controller,
   Get,
   Post,
   Body,
-  UseGuards, // <-- Importación (la dejamos)
-  Request,
-  ForbiddenException,
   Patch,
   Param,
   ParseIntPipe,
   Delete,
+  UseGuards, // Dejo los imports aunque estén comentados abajo
+  Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-// import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // <--- 1. COMENTADO
+import { UpdateUsuarioDto } from './dto/update-usuario.dto'; // 👈 IMPORTANTE: Agregamos esto
 import { UpdateRolDto } from './dto/update-rol.dto';
 import { UpdateEstadoDto } from './dto/update-estado.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+
+// import { JwtAuthGuard } from '../auth/jwt-auth.guard'; 
 
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  // @UseGuards(JwtAuthGuard) // <--- 2. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   create(@Request() req, @Body() createUsuarioDto: CreateUsuarioDto) {
-    // (Tu lógica de 'req.user.rol' puede fallar si el guardián no se usa.
-    // Lo probaremos. Si falla, quitaremos el '@Request() req' 
-    // y la validación de rol temporalmente.)
-    
-    // if (req.user.rol !== 'Administrador') {
-    //   throw new ForbiddenException('Solo los administradores pueden crear usuarios.');
-    // }
     return this.usuariosService.create(createUsuarioDto);
   }
 
   @Get()
-  // @UseGuards(JwtAuthGuard) // <--- 3. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   findAll(@Request() req) {
-    // 👇 CORRECCIÓN: Permitimos que Administradores Y Colaboradores vean la lista
-    // if (req.user.rol !== 'Administrador' && req.user.rol !== 'Colaborador') {
-    //   throw new ForbiddenException('No tienes permiso para ver la lista de usuarios.');
-    // }
     return this.usuariosService.findAll();
   }
 
+  // 👇👇👇 ESTA ES LA RUTA QUE FALTABA (LA MAESTRA) 👇👇👇
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUsuarioDto: UpdateUsuarioDto,
+  ) {
+    // Esta función llama al método 'update' blindado que pusimos en el servicio
+    return this.usuariosService.update(id, updateUsuarioDto);
+  }
+  // 👆👆👆 FIN DE LA RUTA NUEVA 👆👆👆
+
   @Patch(':id/rol')
-  // @UseGuards(JwtAuthGuard) // <--- 4. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   async updateRol(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateRolDto: UpdateRolDto,
   ) {
-    // if (req.user.rol !== 'Administrador') {
-    //   throw new ForbiddenException('Solo los administradores pueden cambiar roles.');
-    // }
-    return this.usuariosService.updateRol(id, updateRolDto);
+    return this.usuariosService.updateRol(id, updateRolDto.rol);
   }
 
   @Patch(':id/estado')
-  // @UseGuards(JwtAuthGuard) // <--- 5. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   async updateEstado(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
     @Body() updateEstadoDto: UpdateEstadoDto,
   ) {
-    // if (req.user.rol !== 'Administrador') {
-    //   throw new ForbiddenException('Solo los administradores pueden cambiar el estado.');
-    // }
-    return this.usuariosService.updateEstado(id, updateEstadoDto);
+    return this.usuariosService.updateEstado(id, updateEstadoDto.isActive);
   }
 
-  // ================================================================
-  // ===== 🚀 INICIO DE LAS NUEVAS RUTAS 🚀 =====
-  // ================================================================
-
   @Patch(':id/password')
-  // @UseGuards(JwtAuthGuard) // <--- 6. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   async resetPassword(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
-    // if (req.user.rol !== 'Administrador') {
-    //   throw new ForbiddenException('Solo los administradores pueden cambiar contraseñas.');
-    // }
-    
-    // if (req.user.userId === id) {
-    //     throw new ForbiddenException('No puedes cambiar tu propia contraseña desde este panel.');
-    // }
-    
-    return this.usuariosService.resetPassword(id, resetPasswordDto);
+    return this.usuariosService.updatePassword(id, resetPasswordDto.password);
   }
 
   @Delete(':id')
-  // @UseGuards(JwtAuthGuard) // <--- 7. COMENTADO
+  // @UseGuards(JwtAuthGuard)
   async remove(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    // if (req.user.rol !== 'Administrador') {
-    //   throw new ForbiddenException('Solo los administradores pueden eliminar usuarios.');
-    // }
-
-    // if (req.user.userId === id) {
-    //   throw new ForbiddenException('No puedes eliminar tu propia cuenta.');
-    // }
-    
     return this.usuariosService.remove(id);
   }
 }

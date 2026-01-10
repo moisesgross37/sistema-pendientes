@@ -1,170 +1,148 @@
-import {
-  Injectable,
-  ConflictException,
-  NotFoundException,
-  ForbiddenException,
-  OnModuleInit, // <--- 1. IMPORTAR HOOK
-  Logger, // <--- 2. IMPORTAR LOGGER
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+
 import { Usuario } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import * as bcrypt from 'bcrypt';
-import { UpdateRolDto } from './dto/update-rol.dto';
-import { UpdateEstadoDto } from './dto/update-estado.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { Pendiente } from '../pendientes/entities/pendiente.entity';
+import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
 @Injectable()
-export class UsuariosService implements OnModuleInit { // <--- 3. IMPLEMENTAR HOOK
-  
-  // --- 👇 4. AÑADIR UN LOGGER ---
-  private readonly logger = new Logger(UsuariosService.name);
-  // --- 👆 ---
-
+export class UsuariosService {
   constructor(
     @InjectRepository(Usuario)
     private usuariosRepository: Repository<Usuario>,
-    @InjectRepository(Pendiente)
-    private pendientesRepository: Repository<Pendiente>,
   ) {}
 
-  // --- 👇 5. AÑADIR ESTA FUNCIÓN ---
-  // Esta función se ejecuta automáticamente cuando el módulo arranca
-  async onModuleInit() {
-    await this.seedDefaultAdmin();
-  }
+  // =================================================================
+  // 1. CREAR USUARIO (Con conversión de Deptos)
+  // =================================================================
+  async create(createUsuarioDto: CreateUsuarioDto) {
+    const { username, password, nombreCompleto, rol, departamentos } = createUsuarioDto;
 
-  // --- 👇 6. AÑADIR ESTA FUNCIÓN ---
-  // Esta es la lógica de "siembra" del Admin
-  async seedDefaultAdmin() {
-    this.logger.log('Comprobando usuarios por defecto...');
-    
-    const count = await this.usuariosRepository.count();
-    
-    if (count === 0) {
-      // La tabla está vacía, vamos a crear el Admin
-      this.logger.warn('Tabla de usuarios vacía. Creando usuario "admin" por defecto...');
-      
-      await this.create({ 
-        nombreCompleto: 'Administrador del Sistema', 
-        username: 'admin',
-        password: 'admin123', // <-- Contraseña temporal
-        rol: 'Administrador'
-      });
-      
-      this.logger.log('Usuario "admin" (clave: "admin123") creado con éxito.');
-    } else {
-      this.logger.log('Los usuarios ya existen. No se necesita siembra.');
+    // Verificar duplicados
+    const existe = await this.usuariosRepository.findOne({ where: { username } });
+    if (existe) {
+      throw new BadRequestException('El nombre de usuario ya está en uso.');
     }
-  }
 
-  // --- (El resto de tus funciones: create, findAll, etc...) ---
+    // Encriptar contraseña
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(password, salt);
 
-  async create(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
-    const { username, password, nombreCompleto, rol } = createUsuarioDto;
-    
-    // (Modificamos el 'ConflictException' para que el 'seed' no falle)
-    const usuarioExistente = await this.usuariosRepository.findOne({
-      where: { username },
-    });
-    if (usuarioExistente) {
-      // Si el 'seeder' intenta crear 'admin' y ya existe, no es un error.
-      if (username === 'admin') {
-        this.logger.log('El usuario "admin" ya existe.');
-        return usuarioExistente;
-      }
-      throw new ConflictException('El nombre de usuario ya existe');
-    }
-    
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Conversión de números a Strings para simple-array
+    const deptosString = departamentos ? departamentos.map(d => String(d)) : [];
+
     const nuevoUsuario = this.usuariosRepository.create({
       username,
-      password: hashedPassword,
+      password: hash, 
       nombreCompleto,
-      rol,
+      rol: rol || 'Asesor',
+      departamentos: deptosString,
       isActive: true,
     });
-    await this.usuariosRepository.save(nuevoUsuario);
-    return nuevoUsuario; // <--- LÍNEA CORREGIDA
+
+    const guardado = await this.usuariosRepository.save(nuevoUsuario);
+    
+    const { password: _, ...result } = guardado;
+    return result;
   }
 
-  async findAll() {
-    const usuarios = await this.usuariosRepository.find();
-    return usuarios.map((usuario) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password, ...usuarioSinPassword } = usuario;
-      return usuarioSinPassword;
-    });
+  // =================================================================
+  // 2. MÉTODOS DE BÚSQUEDA
+  // =================================================================
+  findAll() {
+    return this.usuariosRepository.find({ order: { id: 'ASC' } });
   }
 
-  async findOneByUsername(username: string): Promise<Usuario | null> {
-  // Usamos QueryBuilder para comparar ambos lados en minúsculas (LOWER)
-  return this.usuariosRepository.createQueryBuilder('usuario')
-    .where('LOWER(usuario.username) = LOWER(:username)', { username })
-    .getOne();
-}
+  async findOne(id: number) {
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException(`Usuario #${id} no encontrado`);
+    const { password, ...result } = usuario;
+    return result;
+  }
 
-  async updateRol(id: number, updateRolDto: UpdateRolDto) {
-    const { rol } = updateRolDto;
-    const usuario = await this.usuariosRepository.findOne({ where: { id } });
-    if (!usuario) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+  async findOneByUsername(username: string) {
+    return this.usuariosRepository.findOne({ where: { username } });
+  }
+
+  // =================================================================
+  // 3. ACTUALIZAR (MAIN)
+  // =================================================================
+  async update(id: number, updateUsuarioDto: UpdateUsuarioDto) {
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException(`Usuario #${id} no encontrado`);
+
+    if (updateUsuarioDto.password) {
+      const salt = await bcrypt.genSalt(10);
+      usuario.password = await bcrypt.hash(updateUsuarioDto.password, salt);
     }
+
+    if (updateUsuarioDto.nombreCompleto) usuario.nombreCompleto = updateUsuarioDto.nombreCompleto;
+    if (updateUsuarioDto.rol) usuario.rol = updateUsuarioDto.rol;
+    if (updateUsuarioDto.isActive !== undefined) usuario.isActive = updateUsuarioDto.isActive;
+    
+    if (updateUsuarioDto.departamentos) {
+        usuario.departamentos = updateUsuarioDto.departamentos.map(d => String(d));
+    }
+
+    try {
+      return await this.usuariosRepository.save(usuario);
+    } catch (error) {
+      throw new BadRequestException('Error al actualizar el usuario: ' + error.message);
+    }
+  }
+
+  // =================================================================
+  // 4. MÉTODOS ESPECÍFICOS
+  // =================================================================
+  
+  async updateRol(id: number, rol: string) {
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
     usuario.rol = rol;
-    await this.usuariosRepository.save(usuario);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...usuarioSinPassword } = usuario;
-    return usuarioSinPassword;
+    return this.usuariosRepository.save(usuario);
   }
 
-  async updateEstado(id: number, updateEstadoDto: UpdateEstadoDto) {
-    const { isActive } = updateEstadoDto;
-    const usuario = await this.usuariosRepository.findOne({ where: { id } });
-    if (!usuario) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
+  async updateEstado(id: number, isActive: boolean) {
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
     usuario.isActive = isActive;
-    await this.usuariosRepository.save(usuario);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...usuarioSinPassword } = usuario;
-    return usuarioSinPassword;
+    return this.usuariosRepository.save(usuario);
   }
 
-  async resetPassword(id: number, resetPasswordDto: ResetPasswordDto) {
-    const { password } = resetPasswordDto;
-    const usuario = await this.usuariosRepository.findOne({ where: { id } });
-    if (!usuario) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
-    const salt = await bcrypt.genSalt();
-    usuario.password = await bcrypt.hash(password, salt);
-    await this.usuariosRepository.save(usuario);
-    return { message: 'Contraseña actualizada con éxito.' };
+  async updatePassword(id: number, newPass: string) {
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    
+    const salt = await bcrypt.genSalt(10);
+    usuario.password = await bcrypt.hash(newPass, salt);
+    
+    return this.usuariosRepository.save(usuario);
   }
 
   async remove(id: number) {
-    const usuario = await this.usuariosRepository.findOne({ where: { id } });
-    if (!usuario) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
-    if (usuario.rol === 'Administrador') {
-      throw new ForbiddenException('No se puede eliminar a un usuario Administrador.');
-    }
-    const dependencia = await this.pendientesRepository.findOne({
-      where: [{ asesor: { id: id } }, { colaboradorAsignado: { id: id } }],
-    });
-    if (dependencia) {
-      throw new ConflictException(
-        `No se puede eliminar a ${usuario.username} porque está asignado al pendiente #${dependencia.id}.`,
-      );
-    }
-    const deleteResult = await this.usuariosRepository.delete(id);
-    if (deleteResult.affected === 0) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
-    return { message: 'Usuario eliminado con éxito.' };
+    const usuario = await this.usuariosRepository.findOneBy({ id });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    return this.usuariosRepository.remove(usuario);
   }
+
+  // =================================================================
+  // 6. BUSCADOR DE ESPECIALISTAS (VERSIÓN BLINDADA) 🕵️‍♂️
+  // =================================================================
+  async findOneByDepto(depto: string) {
+    const usuarios = await this.usuariosRepository.find({ where: { isActive: true } });
+    
+    // Buscamos ignorando mayúsculas/minúsculas y tipos de datos
+    return usuarios.find(u => {
+        if (!u.departamentos) return false;
+        
+        // Convertimos todo a texto para buscar sin errores
+        const deptosString = JSON.stringify(u.departamentos).toLowerCase();
+        const busqueda = depto.toLowerCase();
+
+        return deptosString.includes(busqueda);
+    });
+  }
+
 }

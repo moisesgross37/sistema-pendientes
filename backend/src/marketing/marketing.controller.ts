@@ -7,36 +7,84 @@ export class MarketingController {
   constructor(private readonly marketingService: MarketingService) {}
 
   // =========================================================
-  // 👇 1. RUTAS ESPECÍFICAS (VAN PRIMERO)
+  // 👇 1. RUTAS DE GESTIÓN DE CENTROS (EL NUEVO NÚCLEO)
   // =========================================================
 
-  // LISTA LIMPIA (Para usuarios - Solo visibles)
+  // LISTA LIMPIA (Para selectores y vistas públicas)
   @Get('lista-centros')
   getCentros() {
     return this.marketingService.findAllCentros();
   }
 
-  // LISTA COMPLETA (Para Admin - Todos)
+  // LISTA COMPLETA (Para Admin - Gestión Maestra)
   @Get('admin/lista-centros')
   getCentrosAdmin() {
     return this.marketingService.findAllCentrosAdmin();
   }
-
-  // INTERRUPTOR VISIBILIDAD
+// 👇 NUEVO ENDPOINT PARA LA PANTALLA EXCEL
+  @Get('matriz-activaciones')
+  getMatriz() {
+    return this.marketingService.getActivationMatrix();
+  }
+  // INTERRUPTOR VISIBILIDAD (Activar/Desactivar Centro)
   @Patch('admin/centro/:id/toggle')
   toggleCentro(@Param('id') id: string) {
     return this.marketingService.toggleVisibilidadCentro(+id);
   }
+// 👇 EL BOTÓN DE ACTIVACIÓN
+  // POST /marketing/activar-fase
+  // Body: { centroId: 1, eventoKey: '2', fase: 'ARTES' }
+  @Post('activar-fase')
+  activarFase(@Body() body: { centroId: number, eventoKey: string, fase: 'ARTES' | 'GENERAL' }) {
+    return this.marketingService.activarEtapa(body.centroId, body.eventoKey, body.fase);
+  }
+  // 🆕 CREAR CENTRO MAESTRO (ACTUALIZADO 1.1)
+  @Post('admin/centro')
+  createCentroMaster(@Body() body: { 
+      nombre: string; 
+      tipo?: string; // <--- Nuevo
+      asesor?: string; 
+      padre?: string; 
+      tio?: string; 
+  }) {
+    // Pasamos el tipo al servicio
+    return this.marketingService.createCentroMaster(body.nombre, body.tipo, body.asesor, body.padre, body.tio);
+  }
 
-  // SINCRONIZADOR (Cosecha)
+  // 🆕 EDITAR CENTRO MAESTRO (ACTUALIZADO 1.1)
+  @Patch('admin/centro/:id')
+  updateCentroMaster(
+      @Param('id') id: string, 
+      @Body() body: { 
+          nombre: string; 
+          tipo?: string; // <--- Nuevo
+          asesor?: string; 
+          padre?: string; 
+          tio?: string; 
+      }
+  ) {
+    return this.marketingService.updateCentroMaster(+id, body.nombre, body.tipo, body.asesor, body.padre, body.tio);
+  }
+
+  // ELIMINAR CENTRO
+  @Delete('admin/centro/:id')
+  deleteCentroMaster(@Param('id') id: string) {
+    return this.marketingService.deleteCentroMaster(+id);
+  }
+
+  // SINCRONIZADOR (LEGACY - Evaluar eliminar a futuro si ya no se usa Excel)
   @Get('sincronizar') 
   sincronizar() {
     return this.marketingService.sincronizarCentros();
   }
 
   // =========================================================
-  // 👇 2. RUTAS GENÉRICAS (VAN DESPUÉS)
+  // 👇 2. RUTAS GENÉRICAS / LEGACY (MARKETING ANTIGUO)
   // =========================================================
+  /* NOTA PARA EL FUTURO:
+     Estas rutas abajo parecen ser del sistema viejo donde "Marketing" era todo.
+     A medida que migremos a "La Torre", deberíamos ir limpiando esto.
+  */
 
   @Post()
   create(@Body() createDto: CreateMarketingDto) {
@@ -48,7 +96,6 @@ export class MarketingController {
     return this.marketingService.findAll();
   }
 
-  // BUSCAR POR ID (Esta ruta es "glotona", debe ir casi al final)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.marketingService.findOne(+id);

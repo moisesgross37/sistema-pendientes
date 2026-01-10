@@ -1,18 +1,30 @@
 // backend/src/pendientes/dto/update-pendiente.dto.ts
-import { IsEnum, IsNumber, IsOptional, ValidateIf } from 'class-validator'; // <--- Añadir ValidateIf
+// ARCHIVO CORREGIDO Y LISTO PARA 'EN REVISIÓN'
+
+import { IsIn, IsNumber, IsOptional, ValidateIf, IsArray } from 'class-validator';
 
 export class UpdatePendienteDto {
-  @IsOptional()
-  @IsEnum([
-    'Por Asignar', 'Asignado', 'En Proceso', 'Concluido',
-    'Iniciado', 'Fuera de oficina', 'En administración'
-  ])
-  status?: string;
+  @IsOptional()
+  @IsIn([
+    'STANDBY',
+    'Por Asignar',
+    'Pendiente',     // Azul
+    'En Proceso',    // Azul oscuro
+    'En Revisión',   // 👈 EL PASE VIP: Ahora sí lo permitimos
+    'Concluido',     // Verde
+    'Archivado',
+    'Entregado'
+  ])
+  status?: string;
 
-  // 👇 --- CAMBIOS AQUÍ ---
-  @IsOptional()
-  @ValidateIf((_object, value) => value !== null) // Solo valida si no es null
-  @IsNumber() // Asegura que si no es null, sea un número
-  colaboradorAsignadoId?: number | null; // Permite que el tipo sea null
-  // 👆 --- FIN DE CAMBIOS ---
+  // Mantenemos tu lógica de colaborador (estaba bien)
+  @IsOptional()
+  @ValidateIf((_object, value) => value !== null)
+  @IsNumber()
+  colaboradorAsignadoId?: number | null;
+
+  // 👇 AGREGADO: Vital para guardar la firma de quien envió a revisión
+  @IsOptional()
+  @IsArray()
+  historial?: any[];
 }

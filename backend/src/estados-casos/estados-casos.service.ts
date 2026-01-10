@@ -24,152 +24,82 @@ export class EstadosCasosService implements OnModuleInit {
     private casoRepository: Repository<Caso>,
   ) {}
 
-  // --- ARRANQUE DEL MÓDULO (SIEMBRA) ---
-
-  // Esta función se ejecuta automáticamente cuando el módulo arranca
+  // =================================================================
+  // 🌱 SIEMBRA AUTOMÁTICA (Valores por defecto al iniciar)
+  // =================================================================
   async onModuleInit() {
-    await this.seedDefaultEstados();
-  }
+    const cantidad = await this.estadoCasoRepository.count();
+    
+    if (cantidad === 0) {
+      this.logger.log('Sembrando estados por defecto...');
+      
+      const estadosIniciales = [
+        { nombre: 'Pendiente',  color: '#ffc107', requiereComentario: false }, // Warning (Amarillo)
+        { nombre: 'En Proceso', color: '#0d6efd', requiereComentario: false }, // Primary (Azul)
+        { nombre: 'Completado', color: '#198754', requiereComentario: false }, // Success (Verde) - CORREGIDO
+        { nombre: 'Detenido',   color: '#dc3545', requiereComentario: true  }, // Danger (Rojo)
+      ];
 
-  // Esta es la lógica de "siembra"
-  async seedDefaultEstados() {
-    this.logger.log('Comprobando estados por defecto...');
-
-    // Llama a la función 'findAll' que está definida más abajo
-    const estados = await this.findAll();
-
-    if (estados.length === 0) {
-      // La tabla está vacía, vamos a crear los estados
-      this.logger.warn(
-        'Tabla de estados vacía. Creando estados por defecto...',
-      );
-
-      await this.create({
-        nombre: 'Pendiente',
-        color: '#888888', // Gris
-        requiereComentario: false,
-      });
-
-      await this.create({
-        nombre: 'En Proceso',
-        color: '#007bff', // Azul
-        requiereComentario: false,
-      });
-
-      await this.create({
-        nombre: 'Resuelto',
-        color: '#28a745', // Verde
-        requiereComentario: false,
-      });
-
-      await this.create({
-        nombre: 'Detenido',
-        color: '#dc3545', // Rojo
-        requiereComentario: true, // <-- ¡TU IDEA!
-      });
-
-      this.logger.log('Estados por defecto creados con éxito.');
-    } else {
-      this.logger.log('Los estados ya existen. No se necesita siembra.');
-    }
-  }
-
-  // --- FUNCIONES CRUD (API) ---
-
-  // --- CREAR UN NUEVO ESTADO ---
-  async create(
-    createEstadoCasoDto: CreateEstadoCasoDto,
-  ): Promise<EstadoCaso> {
-    const estadoExistente = await this.estadoCasoRepository.findOneBy({
-      nombre: createEstadoCasoDto.nombre,
-    });
-
-    if (estadoExistente) {
-      // (Esta comprobación es para el 'seed'. Si ya existen, no falla)
-      if (createEstadoCasoDto.nombre === 'Pendiente' || createEstadoCasoDto.nombre === 'En Proceso' || createEstadoCasoDto.nombre === 'Resuelto' || createEstadoCasoDto.nombre === 'Detenido') {
-        return estadoExistente;
+      for (const estado of estadosIniciales) {
+        await this.estadoCasoRepository.save(this.estadoCasoRepository.create(estado));
       }
-      throw new ConflictException(
-        `Un estado con el nombre '${createEstadoCasoDto.nombre}' ya existe.`,
-      );
+      this.logger.log('Estados creados con éxito.');
     }
-    const nuevoEstado = this.estadoCasoRepository.create(createEstadoCasoDto);
-    return this.estadoCasoRepository.save(nuevoEstado);
   }
 
-  // --- OBTENER TODOS LOS ESTADOS ---
-  // (Esta es la función que faltaba)
+  // =================================================================
+  // 🛠️ CRUD PRINCIPAL
+  // =================================================================
+
+  async create(createEstadoCasoDto: CreateEstadoCasoDto): Promise<EstadoCaso> {
+    const existe = await this.findOneByNombre(createEstadoCasoDto.nombre);
+    if (existe) {
+      throw new ConflictException(`El estado '${createEstadoCasoDto.nombre}' ya existe.`);
+    }
+    const nuevo = this.estadoCasoRepository.create(createEstadoCasoDto);
+    return this.estadoCasoRepository.save(nuevo);
+  }
+
   findAll(): Promise<EstadoCaso[]> {
-    return this.estadoCasoRepository.find();
+    return this.estadoCasoRepository.find({ order: { id: 'ASC' } });
   }
 
-  // --- OBTENER UN ESTADO POR ID ---
   async findOne(id: number): Promise<EstadoCaso> {
     const estado = await this.estadoCasoRepository.findOneBy({ id });
-    if (!estado) {
-      throw new NotFoundException(`Estado con ID ${id} no encontrado.`);
-    }
+    if (!estado) throw new NotFoundException(`Estado #${id} no encontrado.`);
     return estado;
   }
 
-  // --- OBTENER UN ESTADO POR NOMBRE ---
   async findOneByNombre(nombre: string): Promise<EstadoCaso | null> {
     return this.estadoCasoRepository.findOneBy({ nombre });
   }
 
-  // --- ACTUALIZAR UN ESTADO ---
-  // --- ACTUALIZAR UN ESTADO (VERSIÓN CORREGIDA Y ROBUSTA) ---
-  async update(
-    id: number,
-    updateEstadoCasoDto: UpdateEstadoCasoDto,
-  ): Promise<EstadoCaso> {
+  async update(id: number, dto: UpdateEstadoCasoDto): Promise<EstadoCaso> {
+    const estado = await this.findOne(id);
 
-    // 1. En lugar de 'preload', primero BUSCAMOS el estado
-    const estado = await this.findOne(id); // Reutilizamos findOne (ya maneja NotFoundException)
-
-    // 2. Aplicamos los cambios manualmente solo si existen en el DTO
-    if (updateEstadoCasoDto.nombre !== undefined) {
-      // (Verificamos duplicados si el nombre cambió)
-      if (updateEstadoCasoDto.nombre !== estado.nombre) {
-         const estadoExistente = await this.estadoCasoRepository.findOneBy({
-          nombre: updateEstadoCasoDto.nombre,
-        });
-        if (estadoExistente) {
-          throw new ConflictException(
-            `Un estado con el nombre '${updateEstadoCasoDto.nombre}' ya existe.`,
-          );
-        }
-      }
-      estado.nombre = updateEstadoCasoDto.nombre;
+    // Si cambia el nombre, verificamos que no duplique a otro existente
+    if (dto.nombre && dto.nombre !== estado.nombre) {
+      const existe = await this.findOneByNombre(dto.nombre);
+      if (existe) throw new ConflictException(`El nombre '${dto.nombre}' ya está en uso.`);
+      estado.nombre = dto.nombre;
     }
 
-    if (updateEstadoCasoDto.color !== undefined) {
-      estado.color = updateEstadoCasoDto.color;
-    }
+    if (dto.color) estado.color = dto.color;
+    if (dto.requiereComentario !== undefined) estado.requiereComentario = dto.requiereComentario;
 
-    if (updateEstadoCasoDto.requiereComentario !== undefined) {
-      estado.requiereComentario = updateEstadoCasoDto.requiereComentario;
-    }
-
-    // 3. Guardamos la entidad 'estado' que ya modificamos
     return this.estadoCasoRepository.save(estado);
   }
 
-  // --- ELIMINAR UN ESTADO ---
   async remove(id: number): Promise<{ message: string }> {
     const estado = await this.findOne(id);
 
-    const dependencia = await this.casoRepository.findOne({
-      where: { estado: { id: id } },
-    });
-
-    if (dependencia) {
-      throw new ConflictException(
-        `No se puede eliminar el estado '${estado.nombre}' porque está siendo usado por el Caso #${dependencia.id}.`,
-      );
+    // Protección: No borrar si hay casos usándolo
+    const uso = await this.casoRepository.findOne({ where: { estado: { id } } });
+    if (uso) {
+      throw new ConflictException(`No puedes borrar '${estado.nombre}' porque hay casos usándolo.`);
     }
 
     await this.estadoCasoRepository.remove(estado);
-    return { message: `Estado '${estado.nombre}' (ID: ${id}) eliminado.` };
+    return { message: `Estado '${estado.nombre}' eliminado correctamente.` };
   }
 }
