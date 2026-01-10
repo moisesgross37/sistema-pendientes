@@ -1758,7 +1758,7 @@ return (
                                                         onClick={async () => {
                                                             if (confirm(`🛑 ¿Borrar "${centro.nombre}"?`)) {
                                                                 try {
-                                                                    const res = await fetch(`http://localhost:3000/marketing/centros/${centro.id}`, { method: 'DELETE' });
+                                                                    const res = await fetch(`https://sistema-pendientes.onrender.com/marketing/centros/${centro.id}`, { method: 'DELETE' });
                                                                     if (res.ok) {
                                                                         setListaCentros(prev => prev.filter(c => c.id !== centro.id));
                                                                     } else {
@@ -2542,7 +2542,7 @@ return (
                                                     {caso.imagenes.map((img, i) => (
                                                         <div key={i} className="position-relative border rounded overflow-hidden bg-light d-flex align-items-center justify-content-center" style={{width: '80px', height: '80px'}}>
                                                             <img 
-                                                                src={img.startsWith('http') ? img : `http://localhost:3000/pendientes/uploads/${img}`} 
+                                                                src={img.startsWith('http') ? img : `https://sistema-pendientes.onrender.com/pendientes/uploads/${img}`} 
                                                                 alt="Ref"
                                                                 style={{width: '100%', height: '100%', objectFit: 'cover'}} 
                                                                 onError={(e) => {
@@ -2553,7 +2553,7 @@ return (
                                                             <div className="text-center text-muted d-none position-absolute p-1">
                                                                 <i className="bi bi-image-fill"></i>
                                                             </div>
-                                                            <a href={img.startsWith('http') ? img : `http://localhost:3000/pendientes/uploads/${img}`} target="_blank" rel="noreferrer" className="stretched-link"></a>
+                                                            <a href={img.startsWith('http') ? img : `https://sistema-pendientes.onrender.com/pendientes/uploads/${img}`} target="_blank" rel="noreferrer" className="stretched-link"></a>
                                                         </div>
                                                     ))}
                                                 </div>

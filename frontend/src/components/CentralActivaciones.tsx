@@ -27,7 +27,7 @@ export default function CentralActivaciones() {
 
   const fetchMatriz = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://sistema-pendientes.onrender.com';
       const res = await fetch(`${apiUrl}/marketing/matriz-activaciones`);
       if (!res.ok) throw new Error('Error al conectar con la Torre de Control');
       const data = await res.json();
@@ -57,7 +57,7 @@ export default function CentralActivaciones() {
     const faseKey = `${eventoNombre}_${fase}`; // Ej: GRADUACION_ARTES
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://sistema-pendientes.onrender.com';
       
       // 👇 LLAMADA AL NUEVO ENDPOINT LIMPIO
       const res = await fetch(`${apiUrl}/activaciones/manual`, {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, Form, Badge, Spinner } from 'react-bootstrap';
 
 // URL del Backend
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://sistema-pendientes.onrender.com';
 
 interface EstadoEvento {
   fecha_realizacion: string | null;
