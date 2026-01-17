@@ -532,14 +532,44 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
         setIsLoading(false);
     }
   };
-  // --- 7. FUNCIÓN DE ENVÍO (Submit) - VERSIÓN CORREGIDA ---
+// --- 7. FUNCIÓN DE ENVÍO (Submit) - VERSIÓN BLINDADA CON CANDADO 🔒 ---
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // =================================================================
+    // 🔒 CANDADO DE SEGURIDAD (ANTI-HUÉRFANOS) 🔒
+    // =================================================================
+    
+    // 1. Validar que no esté vacío
+    if (!newNombreCentro || newNombreCentro.trim() === '') {
+        alert("⚠️ El nombre del centro es obligatorio.");
+        return;
+    }
+
+    // 2. LA VERIFICACIÓN MAESTRA:
+    // Buscamos si el nombre escrito coincide EXACTAMENTE con alguno de la lista real.
+    // (Usamos 'listaCentros' que es tu base de datos real cargada en memoria)
+    const centroExisteRealmente = listaCentros.find(
+        c => c.nombre.trim().toLowerCase() === newNombreCentro.trim().toLowerCase()
+    );
+
+    if (!centroExisteRealmente) {
+        alert(
+            "🛑 ACCIÓN DENEGADA: Centro no válido.\n\n" +
+            "El nombre '" + newNombreCentro + "' no existe en el sistema.\n\n" +
+            "👉 SOLUCIÓN:\n" +
+            "1. Borra el texto y selecciona de la lista desplegable.\n" +
+            "2. Si no aparece, PRESIONA EL BOTÓN ROJO 'Solicitar Crear Centro'."
+        );
+        return; // 🧱 AQUÍ SE FRENA TODO. No guarda nada basura.
+    }
+    // =================================================================
+
     setIsLoading(true);
 
-    // Validación básica
+    // Validación básica de descripciones vacías
     if (newCasos.some((caso) => caso.descripcion.trim() === '')) {
       setError('Todos los casos deben tener una descripción.');
       setIsLoading(false);
@@ -578,7 +608,6 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
             (file: any) => file.fileName,
           );
         }
-
         // 2. CORRECCIÓN AQUI: Guardamos el tipo_servicio que seleccionaste en el menú
         casosParaEnviar.push({
           descripcion: caso.descripcion,
