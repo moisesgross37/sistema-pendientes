@@ -197,16 +197,17 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
   // 🏭 BASE DE DATOS DE CENTROS
   const [listaCentros, setListaCentros] = useState<any[]>([]); // Arranca vacía
 
-  // EFECTO: Cargar centros reales cuando se abre la ventana de gestión
+  // ✅ VERSIÓN CORREGIDA: Carga la lista para AMBAS ventanas
   useEffect(() => {
-    if (showAdminCentros) {
+    // CAMBIO 1: Ahora carga si abres Gestión de Centros O si abres Crear Tarea
+    if (showAdminCentros || showCreateForm) { 
         const cargarCentrosReales = async () => {
             try {
-                // Llamamos a la ruta que creamos en el backend
                 const res = await fetch(`${API_URL}/marketing/admin/lista-centros`);
                 if (res.ok) {
                     const data = await res.json();
                     setListaCentros(data);
+                    // console.log("Lista cargada para validación:", data.length); // Opcional para depurar
                 }
             } catch (err) {
                 console.error("Error cargando centros:", err);
@@ -214,8 +215,8 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
         };
         cargarCentrosReales();
     }
-  }, [showAdminCentros]);
-
+    // CAMBIO 2: Agregamos 'showCreateForm' para que reaccione al botón "Nuevo"
+  }, [showAdminCentros, showCreateForm]);
     // ==============================================================
   // 1. FUNCIÓN FETCH PENDIENTES (Con Auto-Logout)
   // ==============================================================
