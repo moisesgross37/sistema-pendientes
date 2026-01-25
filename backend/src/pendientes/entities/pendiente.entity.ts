@@ -33,7 +33,7 @@ export class Pendiente {
   descripcion: string;
 
   @Column({
-    type: 'text', // 👈 CAMBIO: Ahora es texto libre, acepta todo
+    type: 'text',
     default: 'Por Asignar',
   })
   status: string;
@@ -44,18 +44,10 @@ export class Pendiente {
   @Column({ type: 'simple-array', nullable: true })
   imagenes?: string[];
 
-  @Column('jsonb', { nullable: true }) 
+  // ✅ CORREGIDO: UNA SOLA DEFINICIÓN PARA EL HISTORIAL
+  // Usamos 'jsonb' para guardar la lista de movimientos (Bitácora)
+  @Column('jsonb', { nullable: true, default: [] }) 
   historial: any[];
-
-  // --- BITÁCORA (HISTORIAL) ---
-  // Usamos 'jsonb' para guardar la lista de movimientos
-  @Column('jsonb', { nullable: true, default: [] })
-  historial: { 
-    fecha: Date; 
-    autor: string; 
-    accion: string; 
-    nota: string; 
-  }[];
 
   // =================================================================
   // 📍 FASE 1.2: SIEMBRA AUTOMÁTICA (CAMPOS DEL MAPA ORIENTE)
