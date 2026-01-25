@@ -132,7 +132,49 @@ export class PendientesService {
     const p = await this.findOne(id);
     return this.pendientesRepository.remove(p);
   }
+// ==========================================
+  // 📝 LÓGICA PARA GUARDAR EN LA BITÁCORA
+  // ==========================================
+  async agregarComentario(id: number, nota: string, autor: string, accion: string) {
+    // 1. Buscamos la tarea
+    const pendiente = await this.pendientesRepository.findOne({ where: { id } });
+    
+    if (!pendiente) {
+      throw new Error('Tarea no encontrada');
+    }
 
+    // 2. Preparamos el nuevo evento
+    const nuevoEvento = {
+      fecha: new Date().toISOString(),
+      autor: autor,
+      accion: accion, // Ejemplo: 'COMENTARIO', 'OBSERVACIÓN', 'DEVOLUCIÓN'
+      nota: nota
+    };
+
+    // 3. Si no tenía historial, lo creamos vacío
+    if (!pendiente.historial) {
+      pendiente.historial = [];
+    }
+
+    // 4. Agregamos el evento al principio (para que salga el más nuevo arriba) o al final
+    // Vamos a usar push para agregarlo al final (orden cronológico)
+    let historialActual = pendiente.historial;
+    
+    // Truco: PostgreSQL a veces devuelve JSON como string, aseguramos que sea array
+    if (typeof historialActual === 'string') {
+        historialActual = JSON.parse(historialActual);
+    }
+    
+    historialActual.push(nuevoEvento);
+
+    // 5. Guardamos y actualizamos la fecha de la tarea para que se mueva si es necesario
+    pendiente.historial = historialActual;
+    
+    // Opcional: Si quieres que al comentar se actualice la fecha "updatedAt"
+    // pendiente.updatedAt = new Date(); 
+
+    return this.pendientesRepository.save(pendiente);
+  }
   // =================================================================
   // 4. CEREBRO DOMINÓ CON "FOTOS EXTRAS" 🧠📸
   // =================================================================
