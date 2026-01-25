@@ -44,6 +44,9 @@ export class Pendiente {
   @Column({ type: 'simple-array', nullable: true })
   imagenes?: string[];
 
+  @Column('jsonb', { nullable: true }) 
+  historial: any[];
+
   // --- BITÁCORA (HISTORIAL) ---
   // Usamos 'jsonb' para guardar la lista de movimientos
   @Column('jsonb', { nullable: true, default: [] })
