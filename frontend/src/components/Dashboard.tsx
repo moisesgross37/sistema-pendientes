@@ -46,7 +46,9 @@ const [modoVista, setModoVista] = useState<'activos' | 'historial'>('activos');
 const [searchTerm, setSearchTerm] = useState('');
 const [transferDestino, setTransferDestino] = useState('');
 const [filtroPadre, setFiltroPadre] = useState('');
-
+// 📝 ESTADO PARA EL CHAT DE LA TAREA
+  const [nuevaNota, setNuevaNota] = useState('');
+  const [enviandoNota, setEnviandoNota] = useState(false);
   const [busquedaCentro, setBusquedaCentro] = useState(''); // 🔍 Filtro para la tabla
 // ESTADO PARA LA NUEVA VENTANA DE TRABAJO
 const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(null);
@@ -267,6 +269,52 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
       console.error(err);
     }
   };
+  // ==========================================
+  // 📨 FUNCIÓN: ENVIAR NOTA A LA BITÁCORA
+  // ==========================================
+  const handleEnviarNota = async () => {
+    if (!nuevaNota.trim()) return; // No enviar vacíos
+    if (!viewingProyecto) return;  // Seguridad
+
+    setEnviandoNota(true);
+    try {
+      const res = await fetch(`${API_URL}/pendientes/${viewingProyecto.id}/historial`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+            nota: nuevaNota, 
+            accion: 'COMENTARIO' // Etiqueta interna
+        })
+      });
+
+      if (res.ok) {
+        // Truco Visual: Actualizamos la lista localmente para que se vea rápido
+        const usuarioActual = user ? user.username : 'Yo';
+        const nuevoEvento = {
+            fecha: new Date().toISOString(),
+            autor: usuarioActual,
+            accion: 'COMENTARIO',
+            nota: nuevaNota
+        };
+
+        // Clonamos el proyecto y le agregamos el mensaje
+        const proyectoActualizado = { ...viewingProyecto };
+        if (!proyectoActualizado.historial) proyectoActualizado.historial = [];
+        proyectoActualizado.historial.push(nuevoEvento);
+        
+        setViewingProyecto(proyectoActualizado); // Actualiza la pantalla
+        setNuevaNota(''); // Limpia el campo
+      }
+    } catch (error) {
+      alert("Error al enviar nota");
+    } finally {
+      setEnviandoNota(false);
+    }
+  };
+
 // ======================================================
   // 🧠 LÓGICA DEL BUSCADOR INTELIGENTE (AUTOCOMPLETE) 🧠
   // ======================================================
@@ -2611,6 +2659,25 @@ return (
                   <div className="p-3 bg-light border-bottom">
                       <h6 className="fw-bold text-secondary small text-uppercase m-0">Línea de Tiempo</h6>
                   </div>
+                  {/* 👇 NUEVO CHAT DE BITÁCORA 👇 */}
+                  <div className="p-2 border-bottom bg-white">
+                      <div className="input-group input-group-sm">
+                          <Form.Control 
+                              placeholder="Escribe una nota rápida..." 
+                              value={nuevaNota}
+                              onChange={(e) => setNuevaNota(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleEnviarNota(); }}
+                          />
+                          <Button 
+                            variant="primary" 
+                            disabled={!nuevaNota.trim() || enviandoNota}
+                            onClick={handleEnviarNota}
+                          >
+                              {enviandoNota ? <Spinner size="sm" animation="border"/> : <i className="bi bi-send-fill"></i>}
+                          </Button>
+                      </div>
+                  </div>
+                  {/* 👆 FIN DEL CHAT 👆 */}
                   <div className="p-3 flex-grow-1 overflow-auto bg-light">
                       <div className="timeline ps-2">
                           {viewingTask.historial && viewingTask.historial.slice().reverse().map((h, i) => (
