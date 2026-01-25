@@ -143,7 +143,24 @@ export class PendientesController {
         return res.status(404).json({ message: 'Imagen no encontrada en el servidor' });
     }
   }
-
+// ==========================================
+  // 📝 NUEVA RUTA: AGREGAR COMENTARIO / NOTA
+  // ==========================================
+  @Post(':id/historial')
+  async agregarComentario(
+    @Param('id') id: number,
+    @Body() body: { nota: string; accion?: string }, // Recibimos la nota y opcionalmente el tipo de acción
+    @Req() req: any,
+  ) {
+    const usuario = req.user; // El backend ya sabe quién eres por el token
+    return this.pendientesService.agregarComentario(
+      Number(id),
+      body.nota,
+      usuario.username, // Guardamos tu nombre automáticamente
+      body.accion || 'COMENTARIO', // Si no especificamos, es un comentario normal
+    );
+  }
+  
   // --- RESTO DE MÉTODOS (SIN CAMBIOS) ---
   @UseGuards(JwtAuthGuard)
   @Post()
