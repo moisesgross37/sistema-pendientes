@@ -270,15 +270,17 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
     }
   };
   // ==========================================
-  // 📨 FUNCIÓN: ENVIAR NOTA A LA BITÁCORA
+  // 📨 FUNCIÓN: ENVIAR NOTA A LA BITÁCORA (CORREGIDA)
   // ==========================================
   const handleEnviarNota = async () => {
-    if (!nuevaNota.trim()) return; // No enviar vacíos
-    if (!viewingProyecto) return;  // Seguridad
+    // 1. Validaciones de seguridad
+    if (!nuevaNota.trim()) return; 
+    if (!viewingTask) return; // 👈 CORREGIDO: Ahora mira la variable correcta
 
     setEnviandoNota(true);
     try {
-      const res = await fetch(`${API_URL}/pendientes/${viewingProyecto.id}/historial`, {
+      // 2. Enviar al Backend
+      const res = await fetch(`${API_URL}/pendientes/${viewingTask.id}/historial`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -286,13 +288,14 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
         },
         body: JSON.stringify({ 
             nota: nuevaNota, 
-            accion: 'COMENTARIO' // Etiqueta interna
+            accion: 'COMENTARIO' 
         })
       });
 
       if (res.ok) {
-        // Truco Visual: Actualizamos la lista localmente para que se vea rápido
+        // 3. Actualizar la pantalla VISIBLE (viewingTask)
         const usuarioActual = user ? user.username : 'Yo';
+        
         const nuevoEvento = {
             fecha: new Date().toISOString(),
             autor: usuarioActual,
@@ -300,21 +303,25 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
             nota: nuevaNota
         };
 
-        // Clonamos el proyecto y le agregamos el mensaje
-        const proyectoActualizado = { ...viewingProyecto };
-        if (!proyectoActualizado.historial) proyectoActualizado.historial = [];
-        proyectoActualizado.historial.push(nuevoEvento);
+        // Clonamos la tarea actual y le pegamos el mensaje
+        const tareaActualizada = { ...viewingTask };
+        if (!tareaActualizada.historial) tareaActualizada.historial = [];
+        tareaActualizada.historial.push(nuevoEvento);
         
-        setViewingProyecto(proyectoActualizado); // Actualiza la pantalla
-        setNuevaNota(''); // Limpia el campo
+        // 👇 AQUÍ ESTABA EL ERROR: Ahora actualizamos la variable correcta
+        setViewingTask(tareaActualizada); 
+        
+        setNuevaNota(''); // Limpia la cajita
+      } else {
+        alert("⚠️ El servidor no guardó la nota. Intenta de nuevo.");
       }
     } catch (error) {
-      alert("Error al enviar nota");
+      console.error(error);
+      alert("❌ Error de conexión al enviar nota.");
     } finally {
       setEnviandoNota(false);
     }
   };
-
 // ======================================================
   // 🧠 LÓGICA DEL BUSCADOR INTELIGENTE (AUTOCOMPLETE) 🧠
   // ======================================================
