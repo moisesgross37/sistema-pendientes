@@ -1598,114 +1598,91 @@ return (
             {/* 2. DERECHA: HERRAMIENTAS */}
             <div className="d-flex align-items-center gap-2">
 
-            {/* 🖨️ BOTÓN INTELIGENTE CON "COLADOR" DE INVENTARIO */}
-              <Button 
-                variant="outline-dark" 
-                className="me-2 d-flex align-items-center shadow-sm"
-                onClick={async () => {
-                    
-                    // ========================================================
-                    // 🧠 1. EL COLADOR (INTELIGENCIA)
-                    // ========================================================
-                    const tareasDeInventario = pendientesFiltrados.filter(p => 
-                        p.nombreCentro.toLowerCase().includes('inventario') || 
-                        p.nombreCentro.toLowerCase().includes('insumos')
-                    );
+            {/* ================================================================================= */}
+              {/* 🔒 ZONA SEGURA: BOTÓN DE IMPRIMIR INVENTARIO (SOLO ADMIN Y COORDINADOR) */}
+              {/* ================================================================================= */}
+              {(user?.rol === 'Administrador' || user?.rol === 'Coordinador') && (
+                <Button 
+                    variant="outline-dark" 
+                    className="me-2 d-flex align-items-center shadow-sm"
+                    title="Generar PDF de pedidos de inventario (Solo Lectura)"
+                    onClick={() => {
+                        // 1. EL COLADOR (FILTRO DE SEGURIDAD)
+                        // Buscamos tareas donde el NOMBRE DEL CENTRO diga "Inventario" o "Insumos"
+                        const tareasDeInventario = pendientesFiltrados.filter(p => 
+                            (p.nombreCentro && p.nombreCentro.toLowerCase().includes('inventario')) || 
+                            (p.nombreCentro && p.nombreCentro.toLowerCase().includes('insumos'))
+                        );
 
-                    if (tareasDeInventario.length === 0) {
-                        alert("⚠️ No veo tareas de 'Inventario' en esta lista.\n\nEl sistema ignoró tus tareas personales para protegerlas.");
-                        return;
-                    }
-                    // ========================================================
+                        // Si no hay nada, avisamos y no hacemos nada
+                        if (tareasDeInventario.length === 0) {
+                            alert("⚠️ No encontré ninguna tarea activa de 'Inventario' o 'Insumos'.");
+                            return;
+                        }
 
-                    // 2. GENERAR LA IMPRESIÓN
-                    const contenido = tareasDeInventario.map(p => {
-                        const desc = p.casos && p.casos.length > 0 ? p.casos[0].descripcion : 'Ver detalle en sistema';
-                        const solicitante = p.asesor?.username || 'Usuario';
-                        
-                        return `
-                            <tr style="border-bottom: 1px solid #eee;">
-                                <td style="padding: 8px;">${p.id}</td>
-                                <td style="padding: 8px;">
-                                    <strong>${p.area || 'General'}</strong><br>
-                                    <small style="color:#666">Solicitado por: ${solicitante}</small>
-                                </td>
-                                <td style="padding: 8px; font-size: 0.95rem;">${desc}</td>
-                                <td style="padding: 8px;">${new Date(p.fechaCreacion).toLocaleDateString()}</td>
-                            </tr>
-                        `;
-                    }).join('');
+                        // 2. GENERAR EL PDF (MODO SOLO LECTURA - SIN TOCAR BASE DE DATOS)
+                        const contenido = tareasDeInventario.map(p => {
+                            const desc = p.casos && p.casos.length > 0 ? p.casos[0].descripcion : 'Ver detalle en sistema';
+                            const solicitante = p.asesor?.username || 'Usuario';
+                            
+                            return `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 8px;">${p.id}</td>
+                                    <td style="padding: 8px;">
+                                        <strong>${p.nombreCentro}</strong><br>
+                                        <small style="color:#666">Area: ${p.area || 'General'}</small><br>
+                                        <small style="color:#888">Solicita: ${solicitante}</small>
+                                    </td>
+                                    <td style="padding: 8px; font-size: 0.95rem;">${desc}</td>
+                                    <td style="padding: 8px;">${new Date(p.fechaCreacion).toLocaleDateString()}</td>
+                                </tr>
+                            `;
+                        }).join('');
 
-                    const ventanaImpresion = window.open('', 'PRINT', 'height=800,width=900');
-                    if (ventanaImpresion) {
-                        ventanaImpresion.document.write(`
-                            <html>
-                            <head>
-                                <title>Pedido de Suministros - ${new Date().toLocaleDateString()}</title>
-                                <style>
-                                    body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
-                                    h1 { text-align: center; color: #000; margin-bottom: 5px; }
-                                    .subtitulo { text-align: center; color: #666; margin-bottom: 30px; font-size: 0.9rem; }
-                                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                                    th { text-align: left; border-bottom: 2px solid #000; padding: 10px; background: #f9f9f9; font-size: 0.8rem; text-transform: uppercase; }
-                                    .resumen { float: right; font-weight: bold; margin-top: 10px; }
-                                    .firma { border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 10px; margin-top: 50px; float: right; }
-                                </style>
-                            </head>
-                            <body>
-                                <h1>🛒 REPORTE DE INSUMOS / PEDIDOS</h1>
-                                <div class="subtitulo">Generado el: ${new Date().toLocaleString()}</div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th width="10%">ID</th>
-                                            <th width="25%">Origen</th>
-                                            <th width="50%">Descripción del Pedido</th>
-                                            <th width="15%">Fecha</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${contenido}
-                                    </tbody>
-                                </table>
-                                <div class="resumen">Total de Ítems: ${tareasDeInventario.length}</div>
-                                <br><br>
-                                <div class="firma">Autorizado / Recibido</div>
-                            </body>
-                            </html>
-                        `);
-                        ventanaImpresion.document.close();
-                        ventanaImpresion.focus();
-                        ventanaImpresion.print();
-                        
-                        // 3. EL BARRIDO
-                        setTimeout(async () => {
-                            const confirmarLimpieza = window.confirm(
-                                "🖨️ ¿Se imprimió correctamente?\n\n" +
-                                "¿Deseas mover estos " + tareasDeInventario.length + " ítems a 'EN REVISIÓN' para limpiar la lista?"
-                            );
-
-                            if (confirmarLimpieza) {
-                                for (const tarea of tareasDeInventario) {
-                                    try {
-                                        await fetch(`${API_URL}/pendientes/${tarea.id}`, {
-                                            method: 'PATCH',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({ status: 'En Revisión' })
-                                        });
-                                    } catch (err) { console.error(err); }
-                                }
-                                window.location.reload(); 
-                            }
-                        }, 1000);
-                    }
-                }}
-              >
-                <i className="bi bi-printer-fill me-2"></i> Imprimir Pedidos
-              </Button>
+                        const ventanaImpresion = window.open('', 'PRINT', 'height=800,width=900');
+                        if (ventanaImpresion) {
+                            ventanaImpresion.document.write(`
+                                <html>
+                                <head>
+                                    <title>Reporte de Inventario</title>
+                                    <style>
+                                        body { font-family: sans-serif; padding: 40px; }
+                                        table { width: 100%; border-collapse: collapse; }
+                                        th { text-align: left; border-bottom: 2px solid #000; padding: 10px; background: #f0f0f0; }
+                                        h1 { text-align: center; }
+                                        .watermark { position: fixed; bottom: 10px; right: 10px; color: #ccc; font-size: 0.8rem; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <h1>🛒 REPORTE DE INSUMOS</h1>
+                                    <p style="text-align:center; color:#666">Listado de pendientes activos de Inventario</p>
+                                    <br>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Origen</th>
+                                                <th>Detalle</th>
+                                                <th>Fecha</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${contenido}
+                                        </tbody>
+                                    </table>
+                                    <div class="watermark">Generado por Sistema PCOE</div>
+                                </body>
+                                </html>
+                            `);
+                            ventanaImpresion.document.close();
+                            ventanaImpresion.focus();
+                            ventanaImpresion.print();
+                        }
+                    }}
+                >
+                    <i className="bi bi-printer-fill me-2"></i> Imprimir Inventario
+                </Button>
+              )}
               
               {/* A. BOTÓN NUEVO (VISIBLE PARA TODOS - VITAL PARA OPERACIONES INTERNAS) */}
 <Button 
