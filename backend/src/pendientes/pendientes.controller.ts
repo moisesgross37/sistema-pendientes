@@ -144,20 +144,24 @@ export class PendientesController {
     }
   }
 // ==========================================
-  // 📝 NUEVA RUTA: AGREGAR COMENTARIO / NOTA
+  // 📝 NUEVA RUTA: AGREGAR COMENTARIO (CORREGIDA)
   // ==========================================
   @Post(':id/historial')
   async agregarComentario(
     @Param('id') id: number,
-    @Body() body: { nota: string; accion?: string }, // Recibimos la nota y opcionalmente el tipo de acción
+    @Body() body: { nota: string; accion?: string },
     @Req() req: any,
   ) {
-    const usuario = req.user; // El backend ya sabe quién eres por el token
+    // 🛡️ CORRECCIÓN AQUÍ: 
+    // Si req.user existe, usamos el username. Si no, usamos 'Sistema' o 'Anónimo'.
+    // Esto evita que explote si la autenticación falla por un segundo.
+    const nombreAutor = (req.user && req.user.username) ? req.user.username : 'Sistema/Anónimo';
+
     return this.pendientesService.agregarComentario(
       Number(id),
       body.nota,
-      usuario.username, // Guardamos tu nombre automáticamente
-      body.accion || 'COMENTARIO', // Si no especificamos, es un comentario normal
+      nombreAutor, // Usamos la variable segura
+      body.accion || 'COMENTARIO',
     );
   }
   
