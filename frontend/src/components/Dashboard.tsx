@@ -1597,30 +1597,40 @@ return (
 
             {/* 2. DERECHA: HERRAMIENTAS */}
             <div className="d-flex align-items-center gap-2">
-
-            {/* ================================================================================= */}
-              {/* 🔒 ZONA SEGURA: BOTÓN DE IMPRIMIR INVENTARIO (SOLO ADMIN Y COORDINADOR) */}
+{/* ================================================================================= */}
+              {/* 🔒 ZONA SEGURA: BOTÓN DE IMPRIMIR INVENTARIO (MODO ESTRICTO) */}
               {/* ================================================================================= */}
               {(user?.rol === 'Administrador' || user?.rol === 'Coordinador') && (
                 <Button 
                     variant="outline-dark" 
                     className="me-2 d-flex align-items-center shadow-sm"
-                    title="Generar PDF de pedidos de inventario (Solo Lectura)"
+                    title="Imprimir SOLO lo Pendiente de Inventario"
                     onClick={() => {
-                        // 1. EL COLADOR (FILTRO DE SEGURIDAD)
-                        // Buscamos tareas donde el NOMBRE DEL CENTRO diga "Inventario" o "Insumos"
-                        const tareasDeInventario = pendientesFiltrados.filter(p => 
-                            (p.nombreCentro && p.nombreCentro.toLowerCase().includes('inventario')) || 
-                            (p.nombreCentro && p.nombreCentro.toLowerCase().includes('insumos'))
-                        );
+                        // 1. EL COLADOR BLINDADO 🛡️
+                        const tareasDeInventario = pendientesFiltrados.filter(p => {
+                            // A. LIMPIEZA DE DATOS (Convertimos a minúsculas para no fallar)
+                            const nombre = (p.nombreCentro || '').toLowerCase().trim();
+                            const estado = (p.status || '').toLowerCase().trim();
+                            const esArchivado = !!p.archivado; // Forzamos a verdadero/falso
 
-                        // Si no hay nada, avisamos y no hacemos nada
+                            // B. CHEQUEO DE DEPARTAMENTO
+                            const esInventario = nombre.includes('inventario') || nombre.includes('insumos');
+
+                            // C. CHEQUEO DE ESTADO (LA REGLA DE ORO)
+                            // Solo aceptamos lo que diga "pendiente" o "por asignar".
+                            // Todo lo demás (Aprobado, Concluido, En Revisión, Rechazado) se queda FUERA.
+                            const estaVivo = estado === 'pendiente' || estado === 'por asignar';
+
+                            return esInventario && estaVivo && !esArchivado;
+                        });
+
+                        // Si el filtro fue tan estricto que no quedó nada, avisamos
                         if (tareasDeInventario.length === 0) {
-                            alert("⚠️ No encontré ninguna tarea activa de 'Inventario' o 'Insumos'.");
+                            alert("✅ Todo limpio.\n\nNo encontré ningun pedido de Inventario con estado 'Pendiente'.");
                             return;
                         }
 
-                        // 2. GENERAR EL PDF (MODO SOLO LECTURA - SIN TOCAR BASE DE DATOS)
+                        // 2. GENERAR EL PDF
                         const contenido = tareasDeInventario.map(p => {
                             const desc = p.casos && p.casos.length > 0 ? p.casos[0].descripcion : 'Ver detalle en sistema';
                             const solicitante = p.asesor?.username || 'Usuario';
@@ -1644,18 +1654,18 @@ return (
                             ventanaImpresion.document.write(`
                                 <html>
                                 <head>
-                                    <title>Reporte de Inventario</title>
+                                    <title>Pendientes de Inventario</title>
                                     <style>
                                         body { font-family: sans-serif; padding: 40px; }
                                         table { width: 100%; border-collapse: collapse; }
                                         th { text-align: left; border-bottom: 2px solid #000; padding: 10px; background: #f0f0f0; }
-                                        h1 { text-align: center; }
+                                        h1 { text-align: center; margin-bottom: 5px; }
                                         .watermark { position: fixed; bottom: 10px; right: 10px; color: #ccc; font-size: 0.8rem; }
                                     </style>
                                 </head>
                                 <body>
-                                    <h1>🛒 REPORTE DE INSUMOS</h1>
-                                    <p style="text-align:center; color:#666">Listado de pendientes activos de Inventario</p>
+                                    <h1>📦 PENDIENTES DE INVENTARIO</h1>
+                                    <p style="text-align:center; color:#666">Reporte filtrado: Solo ítems activos</p>
                                     <br>
                                     <table>
                                         <thead>
@@ -1683,7 +1693,7 @@ return (
                     <i className="bi bi-printer-fill me-2"></i> Imprimir Inventario
                 </Button>
               )}
-              
+                
               {/* A. BOTÓN NUEVO (VISIBLE PARA TODOS - VITAL PARA OPERACIONES INTERNAS) */}
 <Button 
   variant="primary" 
