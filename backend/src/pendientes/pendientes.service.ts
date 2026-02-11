@@ -176,103 +176,134 @@ export class PendientesService {
     return this.pendientesRepository.save(pendiente);
   }
   // =================================================================
-  // 4. CEREBRO DOMINÓ CON "FOTOS EXTRAS" 🧠📸
+  // 4. CEREBRO DOMINÓ (VERSIÓN AUTO-REPARABLE - LÓGICA MOISÉS) 🧠🔧
   // =================================================================
   private async procesarEfectoDomino(origen: Pendiente) {
     this.logger.log(`⛓️ Dominó iniciado por: ${origen.tipoHito} (Evento: ${origen.eventoKey})`);
 
-    const tareasDormidas = await this.pendientesRepository.find({
-        where: { nombreCentro: origen.nombreCentro, eventoKey: origen.eventoKey, status: 'STANDBY' },
-        relations: ['colaboradorAsignado', 'casos'] 
-    });
-
+    // 1. Definimos QUÉ tareas deben despertar según quién terminó
     let despertar: string[] = [];
 
-    // A. TERMINÓ FOTOS (RECOLECCION)
+    // A. TERMINÓ FOTOS (RECOLECCION) -> Sigue Retoque
     if (origen.tipoHito === TIPOS.RECOLECCION) {
-        despertar.push(TIPOS.RETOQUE); // Siempre Retoque
+        despertar.push(TIPOS.RETOQUE); 
         
-        // SI ES PRE-GRADUACIÓN: Revista + Fotos Extras
         if (origen.eventoKey === FASES.PRE_GRAD) {
             despertar.push(TIPOS.REVISTA);
-            despertar.push(TIPOS.FOTOS_EXTRAS); // 👈 2. AQUÍ AGREGAMOS LA NUEVA TAREA
+            despertar.push(TIPOS.FOTOS_EXTRAS); 
         }
-        
         if (origen.eventoKey === FASES.GRADUACION) despertar.push(TIPOS.MURAL);
     }
 
     // B. TERMINÓ RETOQUE
     else if (origen.tipoHito === TIPOS.RETOQUE) {
+        // Siempre despierta a WEB y REDES (Para las Tías)
         despertar.push(TIPOS.WEB, TIPOS.REDES);
         
+        // 🔒 SOLO despierta IMPRESIÓN en las fases que TÚ indicaste
         const fasesConImpresion = [FASES.EXTERIOR, FASES.PRE_GRAD, FASES.GRADUACION];
+        
         if (fasesConImpresion.includes(origen.eventoKey)) {
-            despertar.push(TIPOS.IMPRESION);
+            despertar.push(TIPOS.IMPRESION); 
         }
     }
 
-    // EJECUCIÓN
-    for (const tarea of tareasDormidas) {
-        if (despertar.includes(tarea.tipoHito)) {
-            
-            // 1. ASIGNACIÓN
-            const centro = await this.centrosRepository.findOneBy({ nombre: origen.nombreCentro });
-            
-            // Grupo PADRE (Agregamos FOTOS_EXTRAS aquí)
-            if ([TIPOS.RETOQUE, TIPOS.REVISTA, TIPOS.MURAL, TIPOS.FOTOS_EXTRAS].includes(tarea.tipoHito)) { // 👈 3. ASIGNACIÓN AL PADRE
-                 if (centro?.padre) {
-                    const padre = await this.usuariosRepository.findOneBy({ username: centro.padre });
-                    if (padre) tarea.colaboradorAsignado = padre;
-                 }
-            }
-            // Grupo MARKETING
-            else if ([TIPOS.WEB, TIPOS.REDES, TIPOS.ENCUESTA].includes(tarea.tipoHito)) {
-                const nombreTio = (centro as any).tio || (centro as any).marketing;
-                if (nombreTio) {
-                    const tio = await this.usuariosRepository.findOneBy({ username: nombreTio });
-                    if (tio) tarea.colaboradorAsignado = tio;
-                } else {
-                    const all = await this.usuariosRepository.find();
-                    const marketero = all.find(u => u.departamentos && u.departamentos.includes('Marketing'));
-                    if (marketero) tarea.colaboradorAsignado = marketero;
-                }
-            }
-            // Grupo IMPRESIÓN
-            else if (tarea.tipoHito === TIPOS.IMPRESION) {
-                const all = await this.usuariosRepository.find();
-                const impresor = all.find(u => u.departamentos && u.departamentos.includes('Impresion'));
-                if (impresor) tarea.colaboradorAsignado = impresor;
-            }
+    // 2. Buscamos tareas dormidas (STANDBY)
+    const tareasDormidas = await this.pendientesRepository.find({
+        where: { nombreCentro: origen.nombreCentro, eventoKey: origen.eventoKey, status: 'STANDBY' },
+        relations: ['colaboradorAsignado', 'casos'] 
+    });
 
-            // 2. ACTIVACIÓN
+    // 3. EJECUCIÓN AUTO-REPARABLE (La Magia)
+    for (const tipoDestino of despertar) {
+        
+        let tarea = tareasDormidas.find(t => t.tipoHito === tipoDestino);
+        let esNueva = false;
+
+        // SI NO EXISTE LA TAREA -> LA CREAMOS AL VUELO (Aquí arreglamos el problema de Impresión)
+        if (!tarea) {
+            // Verificamos si ya existe activa para no duplicar
+            const existeActiva = await this.pendientesRepository.findOne({
+                where: { nombreCentro: origen.nombreCentro, eventoKey: origen.eventoKey, tipoHito: tipoDestino }
+            });
+            
+            if (!existeActiva) {
+                this.logger.log(`⚠️ No se encontró ${tipoDestino}. Creándola automáticamente...`);
+                
+                tarea = this.pendientesRepository.create({
+                    nombreCentro: origen.nombreCentro,
+                    asesor: origen.asesor,
+                    area: 'Produccion',
+                    status: 'Pendiente', 
+                    fechaAsignacion: new Date(),
+                    fechaCreacion: new Date(),
+                    historial: [{ fecha: new Date(), autor: 'SISTEMA', nota: 'Creación Automática por Dominó', accion: 'Creación' }],
+                    esHito: true,
+                    eventoKey: origen.eventoKey,
+                    tipoHito: tipoDestino
+                });
+                esNueva = true;
+            } else {
+                continue; // Si ya existe activa, no hacemos nada
+            }
+        }
+
+        // 4. LÓGICA DE ASIGNACIÓN
+        const centro = await this.centrosRepository.findOneBy({ nombre: origen.nombreCentro });
+        
+        // Grupo PADRE (Retoque, Revista, Mural, Fotos Extras)
+        if ([TIPOS.RETOQUE, TIPOS.REVISTA, TIPOS.MURAL, TIPOS.FOTOS_EXTRAS].includes(tipoDestino)) {
+             if (centro?.padre) {
+                const padre = await this.usuariosRepository.findOneBy({ username: centro.padre });
+                if (padre) tarea.colaboradorAsignado = padre;
+             }
+        }
+        // Grupo MARKETING (Web, Redes, Encuesta - Las Tías)
+        else if ([TIPOS.WEB, TIPOS.REDES, TIPOS.ENCUESTA].includes(tipoDestino)) {
+            const nombreTio = (centro as any).tio || (centro as any).marketing;
+            if (nombreTio) {
+                const tio = await this.usuariosRepository.findOneBy({ username: nombreTio });
+                if (tio) tarea.colaboradorAsignado = tio;
+            } else {
+                // Fallback: Busca a alguien de Marketing
+                const all = await this.usuariosRepository.find();
+                const marketero = all.find(u => u.departamentos && u.departamentos.includes('Marketing'));
+                if (marketero) tarea.colaboradorAsignado = marketero;
+            }
+        }
+        // Grupo IMPRESIÓN (Para Exterior, Pre y Grad)
+        else if (tipoDestino === TIPOS.IMPRESION) {
+            const all = await this.usuariosRepository.find();
+            // Busca a alguien con insignia 'Impresion'
+            const impresor = all.find(u => u.departamentos && u.departamentos.includes('Impresion'));
+            if (impresor) tarea.colaboradorAsignado = impresor;
+        }
+
+        // 5. ACTIVACIÓN Y GUARDADO
+        if (!esNueva) { 
             tarea.status = 'Pendiente';
             tarea.fechaAsignacion = new Date();
-            await this.pendientesRepository.save(tarea);
+        }
+        
+        await this.pendientesRepository.save(tarea);
 
-            // 3. RELLENO DE EMERGENCIA (Para evitar pantallas blancas)
-            if (!tarea.casos || tarea.casos.length === 0) {
-                let descripcion = `Tarea: ${tarea.tipoHito}`;
-                let servicio = 'Generico';
+        // 6. RELLENO DE CASOS DE EMERGENCIA (Solo si está vacía)
+        if (!tarea.casos || tarea.casos.length === 0) {
+            let descripcion = `Tarea: ${tipoDestino}`;
+            let servicio = 'Generico';
 
-                if (tarea.tipoHito === TIPOS.IMPRESION) { descripcion = '🖨️ Impresión de Fotos y Anuarios'; servicio = 'Impresion'; }
-                if (tarea.tipoHito === TIPOS.WEB) { descripcion = '🌐 Carga de Fotos a Plataforma Web'; servicio = 'Web'; }
-                if (tarea.tipoHito === TIPOS.REDES) { descripcion = '📱 Selección para Redes Sociales'; servicio = 'Marketing'; }
-                if (tarea.tipoHito === TIPOS.RETOQUE) { descripcion = '✨ Retoque Digital y Selección'; servicio = 'Edicion'; }
-                if (tarea.tipoHito === TIPOS.REVISTA) { descripcion = '📖 Maquetación de Revista'; servicio = 'Edicion'; }
-                if (tarea.tipoHito === TIPOS.MURAL) { descripcion = '🖼️ Diseño de Mural'; servicio = 'Edicion'; }
-                
-                // 👈 4. DESCRIPCIÓN PARA LA NUEVA TAREA
-                if (tarea.tipoHito === TIPOS.FOTOS_EXTRAS) { descripcion = '📸 Gestión de Fotos Extras y Adicionales'; servicio = 'Edicion'; }
-
-                const nuevoCaso = this.casosRepository.create({
-                    descripcion: descripcion,
-                    tipo_servicio: servicio,
-                    pendiente: tarea,
-                    imagenes: []
-                });
-                await this.casosRepository.save(nuevoCaso);
-            }
+            if (tipoDestino === TIPOS.IMPRESION) { descripcion = '🖨️ Impresión de Fotos y Anuarios'; servicio = 'Impresion'; }
+            if (tipoDestino === TIPOS.WEB) { descripcion = '🌐 Carga de Fotos a Plataforma Web'; servicio = 'Web'; }
+            if (tipoDestino === TIPOS.REDES) { descripcion = '📱 Selección para Redes Sociales'; servicio = 'Marketing'; }
+            if (tipoDestino === TIPOS.RETOQUE) { descripcion = '✨ Retoque Digital y Selección'; servicio = 'Edicion'; }
+            
+            const nuevoCaso = this.casosRepository.create({
+                descripcion: descripcion,
+                tipo_servicio: servicio,
+                pendiente: tarea,
+                imagenes: []
+            });
+            await this.casosRepository.save(nuevoCaso);
         }
     }
   }
-}
