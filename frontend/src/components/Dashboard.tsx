@@ -1920,20 +1920,35 @@ return (
                                             
                                             <td className="text-end pe-4">
                                                 <div className="d-flex justify-content-end gap-2">
+                                                    {/* BOTÓN 1: EDITAR (Restaurado) ✏️ */}
+                                                    <Button 
+                                                        variant="outline-primary" size="sm" 
+                                                        onClick={() => {
+                                                            setEditingId(centro.id);
+                                                            setNewCentroNombre(centro.nombre);
+                                                            setNewCentroTipo(centro.tipo || 'cliente');
+                                                            setNewCentroAsesor(centro.asesor || '');
+                                                            setNewCentroPadre(centro.padre || '');
+                                                            setNewCentroTio(centro.tio || '');
+                                                            setShowCrearCentroModal(true);
+                                                        }}
+                                                        title="Editar Centro"
+                                                    >
+                                                        <i className="bi bi-pencil-square"></i>
+                                                    </Button>
+
+                                                    {/* BOTÓN 2: BORRAR (El Corregido) 🗑️ */}
                                                     <Button 
                                                         variant="outline-danger" size="sm"
                                                         onClick={async () => {
                                                             if (confirm(`🛑 ¿Seguro que deseas borrar "${centro.nombre}"?`)) {
                                                                 try {
-                                                                    // 👇 AQUÍ ESTÁ EL CAMBIO: 'admin/centro'
                                                                     const res = await fetch(`https://sistema-pendientes.onrender.com/marketing/admin/centro/${centro.id}`, { method: 'DELETE' });
                                                                     
                                                                     if (res.ok) {
-                                                                        // Si se borró, lo quitamos de la lista visualmente
                                                                         setListaCentros(prev => prev.filter(c => c.id !== centro.id));
                                                                         alert("✅ Centro eliminado.");
                                                                     } else {
-                                                                        // Leemos el error real del backend (Ej: "Tiene tareas asociadas")
                                                                         const errorData = await res.json().catch(() => ({ message: "Error desconocido" }));
                                                                         alert(`❌ No se pudo borrar:\n${errorData.message}`);
                                                                     }
@@ -1943,6 +1958,7 @@ return (
                                                                 }
                                                             }
                                                         }}
+                                                        title="Borrar Centro"
                                                     >
                                                         <i className="bi bi-trash"></i>
                                                     </Button>
