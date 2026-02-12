@@ -30,14 +30,17 @@ export class MarketingController {
   @Patch('admin/centro/:id/toggle')
   toggleCentro(@Param('id') id: string) {
     return this.marketingService.toggleVisibilidadCentro(+id);
-  }
-// 👇 EL BOTÓN DE ACTIVACIÓN
+
+
+  }// 👇 EL BOTÓN DE ACTIVACIÓN (ACTUALIZADO: Ahora recibe quién dio la orden)
   // POST /marketing/activar-fase
-  // Body: { centroId: 1, eventoKey: '2', fase: 'ARTES' }
   @Post('activar-fase')
-  activarFase(@Body() body: { centroId: number, eventoKey: string, fase: 'ARTES' | 'GENERAL' }) {
-    return this.marketingService.activarEtapa(body.centroId, body.eventoKey, body.fase);
+  activarFase(@Body() body: { centroId: number, eventoKey: string, fase: string, userId?: number }) { 
+    // 👇 Pasamos el ID del usuario (si viene) al servicio
+    return this.marketingService.activarEtapa(body.centroId, body.eventoKey, body.fase, body.userId);
   }
+
+  
   // 🆕 CREAR CENTRO MAESTRO (ACTUALIZADO 1.1)
   @Post('admin/centro')
   createCentroMaster(@Body() body: { 

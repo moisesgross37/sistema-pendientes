@@ -305,12 +305,11 @@ export class MarketingService {
     }
     return centroGuardado;
   }
-  // 👇 PEGA ESTO JUSTO DEBAJO DE createCentroMaster (DENTRO DE LA CLASE)
-  private async crearTareaSemilla(centro: string, fase: any, tipo: string, desc: string, responsable: any, area: string) {
+  // 👇 VERSIÓN FINAL: Acepta nombre del autor
+  private async crearTareaSemilla(centro: string, fase: any, tipo: string, desc: string, responsable: any, area: string, autorNombre: string = 'SISTEMA') {
     
     // 🛡️ PARCHE DE SEGURIDAD:
-    // En lugar de pasar el objeto "responsable" (que puede venir incompleto),
-    // creamos una referencia directa usando SOLO su ID. TypeORM ama esto.
+    // Creamos referencia limpia al colaborador
     const colaboradorRef = responsable && responsable.id ? { id: responsable.id } : null;
 
     const tarea = this.pendientesRepository.create({
@@ -322,7 +321,8 @@ export class MarketingService {
         esHito: true,
         eventoKey: fase.key,
         tipoHito: tipo,
-        historial: [{ fecha: new Date(), autor: 'SISTEMA', accion: 'SIEMBRA', nota: 'Hito creado en espera.' }]
+        // 👇 AQUÍ ESTÁ EL CAMBIO: Usamos la variable 'autorNombre'
+        historial: [{ fecha: new Date(), autor: autorNombre, accion: 'SIEMBRA', nota: 'Hito creado en espera.' }]
     } as any);
     
     // Guardamos directo
@@ -408,13 +408,17 @@ export class MarketingService {
     return matriz;
   }
 // =================================================================
-  // 5. EL DESPERTADOR AUTOMÁTICO (Versión Híbrida: Jesús + Logística) 💉
+  // 5. EL DESPERTADOR AUTOMÁTICO (Versión Híbrida: Jesús + Logística + Identidad) 💉
   // =================================================================
-  async activarEtapa(centroId: number, eventoKey: string, fase: string) { // 👈 Aceptamos string para que entre 'LOGISTICA'
+  async activarEtapa(centroId: number, eventoKey: string, fase: string, userId: number = 1) {
     const centro = await this.centrosRepository.findOneBy({ id: centroId });
     if (!centro) throw new NotFoundException('Centro no encontrado');
 
-    // 1. DEFINIMOS QUÉ QUEREMOS ACTIVAR
+    // 👇 1. BUSCAMOS QUIÉN DIO LA ORDEN (Para no poner "SISTEMA")
+    const autorOrden = await this.usuarioRepository.findOneBy({ id: userId });
+    const nombreAutor = autorOrden ? autorOrden.username : 'SISTEMA';
+
+    // 2. DEFINIMOS QUÉ QUEREMOS ACTIVAR
     let tiposAfectados: string[] = [];
 
     if (fase === 'ARTES') {
@@ -471,14 +475,14 @@ export class MarketingService {
                     area = 'Marketing';
                 }
 
-                // Usamos la función auxiliar que ya agregaste
-                await this.crearTareaSemilla(centro.nombre, { key: eventoKey }, tipoNuevo, `Tarea: ${tipoNuevo}`, responsable, area);
+                // 👇 AQUÍ LA CLAVE: Pasamos 'nombreAutor' al final
+                await this.crearTareaSemilla(centro.nombre, { key: eventoKey }, tipoNuevo, `Tarea: ${tipoNuevo}`, responsable, area, nombreAutor);
             }
         }
     }
     // 🌟 FIN DE LA MAGIA RETROACTIVA
 
-    // 2. BÚSQUEDA Y ACTIVACIÓN (TU LÓGICA ORIGINAL)
+    // 3. BÚSQUEDA Y ACTIVACIÓN (TU LÓGICA ORIGINAL)
     // Volvemos a buscar para asegurarnos de traer las nuevas si se crearon
     const tareas = await this.pendientesRepository.find({
         where: { nombreCentro: centro.nombre, eventoKey: eventoKey },
@@ -492,7 +496,7 @@ export class MarketingService {
             
             console.log(`💉 INYECCIÓN AUTOMÁTICA EN TAREA ID: ${tarea.id}`);
 
-            // 3. ASIGNACIÓN DE EMERGENCIA (TU LÓGICA DE JESÚS - INTACTA)
+            // 4. ASIGNACIÓN DE EMERGENCIA (TU LÓGICA DE JESÚS - INTACTA)
             if (!tarea.colaboradorAsignado) {
                 console.log("   -> Vacante detectada. Asignando a Jesús (ID 4).");
                 tarea.colaboradorAsignado = { id: 4 } as any; 
@@ -500,7 +504,7 @@ export class MarketingService {
                  console.log(`   -> Ya tiene dueño (ID ${tarea.colaboradorAsignado.id}). Respetando.`);
             }
 
-            // 4. ESTADO 'Pendiente'
+            // 5. ESTADO 'Pendiente'
             tarea.status = 'Pendiente'; 
             tarea.fechaAsignacion = new Date();
 
