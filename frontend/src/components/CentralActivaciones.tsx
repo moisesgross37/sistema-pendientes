@@ -193,6 +193,17 @@ export default function CentralActivaciones() {
                             {/* 👇 Y EN ESTOS DOS TAMBIÉN: */}
                             {renderCelda(centro.id, '5', 'ARTES', centro.graduacion_artes, 'Graduación (Artes)', centro.nombre)}
                             {renderCelda(centro.id, '5', 'GENERAL', centro.graduacion_logistica, 'Graduación (Gral)', centro.nombre)}
+                        
+                        <Button 
+                                variant="outline-dark" 
+                                size="sm"
+                                className="w-100 mt-1"
+                                style={{ fontSize: '0.70rem', fontWeight: 'bold', borderStyle: 'dashed', borderWidth: '2px' }}
+                                onClick={() => activarFase(centro.id, '5', 'LOGISTICA', 'Graduación (Logística)', centro.nombre)}
+                                title="Activar Guiones, Pergaminos y Videos. (Si no existen, el sistema los crea)"
+                            >
+                                ⚡ Logística & Videos
+                            </Button>
                         </div>
                     </td>
 
