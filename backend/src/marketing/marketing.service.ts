@@ -31,6 +31,23 @@ const TIPOS_TAREA = {
   REVISTA: 'REVISTA',
   MURAL: 'MURAL'
 };
+const TIPOS_LOGISTICA = {
+  // Coordinación
+  GUION: 'GUION_MAESTRO',
+  PROG_EVENTO: 'PROGRAMA_EVENTO',
+
+  // Encargado (Van a Imprenta)
+  PERGAMINO: 'PERGAMINOS',
+  RECONOCIMIENTOS: 'RECONOCIMIENTOS',
+  MEMBRETES: 'MEMBRETES_MESA',
+  PROG_SILLA: 'PROGRAMA_SILLA',
+  RESERVADO: 'LETREROS_RESERVADO',
+
+  // Marketing (Videos)
+  VIDEO_TBT: 'VIDEO_TBT',
+  VIDEO_VIVENCIAS: 'VIDEO_VIVENCIAS',
+  VISUALES: 'VISUALES_ESPECIALES' // Cuadrícula/Póstumo
+};
 
 // 👇 NORMALIZADOR FUERA DE LA CLASE
 const normalizar = (texto: string) => {
@@ -189,8 +206,10 @@ export class MarketingService {
     const especialistaArtes = await this.obtenerEspecialista(todosUsuarios, 'Artes');
     const especialistaImpresion = await this.obtenerEspecialista(todosUsuarios, 'Impresion');
     const especialistaColector = await this.obtenerEspecialista(todosUsuarios, 'Colector'); 
+    // 👇 NUEVO: Buscamos Coordinación
+    const especialistaCoord = await this.obtenerEspecialista(todosUsuarios, 'Coordinacion');
 
-    // LOG DE CONTROL (Ver en consola si encontró a Jesús)
+    // LOG DE CONTROL
     if (especialistaColector) console.log(`✅ LOGISTICA ENCONTRADO: ${especialistaColector.username}`);
     else console.log(`❌ LOGISTICA NO ENCONTRADO (buscando Colector)`);
 
@@ -213,7 +232,7 @@ export class MarketingService {
                     `🎨 Artes: Diseño ${fase.nombre}`, especialistaArtes || usuarioPadre, 'Artes');
             }
 
-            // B. Logística / Recolección (AQUÍ USAMOS AL COLECTOR JESÚS)
+            // B. Logística / Recolección
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.RECOLECCION, 
                 `📸 Logística: Recolección ${fase.nombre}`, especialistaColector || usuarioPadre, 'Logistica');
 
@@ -235,21 +254,58 @@ export class MarketingService {
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.REDES, 
                 `📱 Redes: Publicación Social ${fase.nombre}`, usuarioTio || usuarioPadre, 'Marketing');
 
-            // Extras
+            // Extras Pre-Grad
             if (fase.key === FASES.PRE_GRAD) {
                 await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.REVISTA, 
                     `📖 Revista: Maquetación`, especialistaArtes || usuarioPadre, 'Artes');
             }
+
+            // 👇 --- NUEVA LOGÍSTICA DE GRADUACIÓN (Opción B) --- 👇
             if (fase.key === FASES.GRADUACION) {
+                // Mural (El original)
                 await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.MURAL, 
                     `🎨 Mural: Diseño Final`, especialistaArtes || usuarioPadre, 'Artes');
+
+                // A. COORDINACIÓN (Guiones)
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.GUION,
+                    `🎤 Logística: Guion Maestro de Ceremonias`, especialistaCoord || usuarioPadre, 'Coordinacion');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.PROG_EVENTO,
+                    `📅 Logística: Programa Coordinador del Evento`, especialistaCoord || usuarioPadre, 'Coordinacion');
+
+
+                // B. ENCARGADO DEL CENTRO (Papelería)
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.PERGAMINO,
+                    `📜 Diseño: Pergaminos Colación de Grado`, usuarioPadre, 'Produccion');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.RECONOCIMIENTOS,
+                    `🏆 Diseño: Reconocimientos Varios`, usuarioPadre, 'Produccion');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.MEMBRETES,
+                    `📄 Diseño: Membretes Mesa Directiva`, usuarioPadre, 'Produccion');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.PROG_SILLA,
+                    `🪑 Diseño: Programas de Sillas`, usuarioPadre, 'Produccion');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.RESERVADO,
+                    `🚫 Diseño: Letreros Reservado`, usuarioPadre, 'Produccion');
+
+
+                // C. MARKETING / TÍA (Videos)
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.VIDEO_TBT,
+                    `🎥 Video: Creación TBT`, usuarioTio || usuarioPadre, 'Marketing');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.VIDEO_VIVENCIAS,
+                    `🎬 Video: Creación Vivencias`, usuarioTio || usuarioPadre, 'Marketing');
+
+                await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_LOGISTICA.VISUALES,
+                    `📺 Video: Visuales Especiales / Póstumo`, usuarioTio || usuarioPadre, 'Marketing');
             }
         }
     }
     return centroGuardado;
   }
-
-  // 👇 COPIA Y PEGA ESTO EN TU MARKETING.SERVICE.TS (REEMPLAZANDO LA FUNCIÓN ANTERIOR)
+  // 👇 PEGA ESTO JUSTO DEBAJO DE createCentroMaster (DENTRO DE LA CLASE)
   private async crearTareaSemilla(centro: string, fase: any, tipo: string, desc: string, responsable: any, area: string) {
     
     // 🛡️ PARCHE DE SEGURIDAD:
@@ -257,15 +313,10 @@ export class MarketingService {
     // creamos una referencia directa usando SOLO su ID. TypeORM ama esto.
     const colaboradorRef = responsable && responsable.id ? { id: responsable.id } : null;
 
-    // LOG DE CONFIRMACIÓN (Para que veas en consola que el ID viaja bien)
-    if (area === 'Logistica' || area === 'Colector') {
-        console.log(`🛡️ GUARDANDO TAREA ${tipo} -> ASIGNADO A ID: ${colaboradorRef?.id || 'VACANTE (NULL)'}`);
-    }
-
     const tarea = this.pendientesRepository.create({
         nombreCentro: centro,
         descripcion: desc,
-        colaboradorAsignado: colaboradorRef, // 👈 AQUÍ ESTÁ LA CLAVE
+        colaboradorAsignado: colaboradorRef,
         area: area,
         status: 'STANDBY', 
         esHito: true,
@@ -274,13 +325,9 @@ export class MarketingService {
         historial: [{ fecha: new Date(), autor: 'SISTEMA', accion: 'SIEMBRA', nota: 'Hito creado en espera.' }]
     } as any);
     
-    // Guardamos directo, sin intermediarios
+    // Guardamos directo
     return this.pendientesRepository.save(tarea);
   }
-
-  // =================================================================
-  // 3. MÉTODOS DE GESTIÓN DE CENTROS (UPDATE / DELETE)
-  // =================================================================
   async updateCentroMaster(id: number, nombre: string, tipo?: string, asesor?: string, padre?: string, tio?: string) {
     const centro = await this.centrosRepository.findOneBy({ id });
     if (!centro) throw new NotFoundException('Centro no encontrado');
@@ -338,24 +385,78 @@ export class MarketingService {
     return matriz;
   }
 // =================================================================
-  // 5. EL DESPERTADOR AUTOMÁTICO (Igual que la Inyección Manual) 💉
+  // 5. EL DESPERTADOR AUTOMÁTICO (Versión Híbrida: Jesús + Logística) 💉
   // =================================================================
-  async activarEtapa(centroId: number, eventoKey: string, fase: 'ARTES' | 'GENERAL') {
+  async activarEtapa(centroId: number, eventoKey: string, fase: string) { // 👈 Aceptamos string para que entre 'LOGISTICA'
     const centro = await this.centrosRepository.findOneBy({ id: centroId });
     if (!centro) throw new NotFoundException('Centro no encontrado');
 
     // 1. DEFINIMOS QUÉ QUEREMOS ACTIVAR
     let tiposAfectados: string[] = [];
+
     if (fase === 'ARTES') {
         tiposAfectados = [TIPOS_TAREA.ARTES, TIPOS_TAREA.MURAL, TIPOS_TAREA.REVISTA]; 
-    } else if (fase === 'GENERAL') {
+    } 
+    else if (fase === 'GENERAL') {
         tiposAfectados = [TIPOS_TAREA.RECOLECCION, TIPOS_TAREA.ENCUESTA];
-    } else {
+    }
+    // 👇 AQUÍ AGREGAMOS LA NUEVA OPCIÓN (SIN TOCAR LO DEMÁS)
+    else if (fase === 'LOGISTICA') {
+        tiposAfectados = [
+            TIPOS_LOGISTICA.GUION, TIPOS_LOGISTICA.PROG_EVENTO,
+            TIPOS_LOGISTICA.PERGAMINO, TIPOS_LOGISTICA.RECONOCIMIENTOS, 
+            TIPOS_LOGISTICA.MEMBRETES, TIPOS_LOGISTICA.PROG_SILLA, TIPOS_LOGISTICA.RESERVADO,
+            TIPOS_LOGISTICA.VIDEO_TBT, TIPOS_LOGISTICA.VIDEO_VIVENCIAS, TIPOS_LOGISTICA.VISUALES
+        ];
+    }
+    else {
         throw new BadRequestException('Fase no válida.');
     }
 
-    // 2. BÚSQUEDA (CON LOS LENTES PUESTOS 👓)
-    // Traemos la tarea y su colaborador para ver si ya existe
+    // 🌟 NUEVO: MAGIA RETROACTIVA (Solo para Logística en Centros Viejos)
+    // Verifica si faltan las tareas y las crea antes de intentar activarlas.
+    if (fase === 'LOGISTICA') {
+        // Buscamos tareas existentes
+        const tareasExistentes = await this.pendientesRepository.find({
+            where: { nombreCentro: centro.nombre, eventoKey: eventoKey }
+        });
+
+        // Preparamos datos por si hay que crear (Solo si faltan)
+        const todosUsuarios = await this.usuarioRepository.find();
+        const centroData = await this.centrosRepository.findOneBy({ id: centro.id }); // Recargamos para ver padres
+        
+        const usuarioPadre = centroData?.padre ? todosUsuarios.find(u => normalizar(u.username) === normalizar(centroData.padre)) : null;
+        const usuarioTio = centroData?.tio ? todosUsuarios.find(u => normalizar(u.username) === normalizar(centroData.tio)) : null;
+        const especialistaCoord = await this.obtenerEspecialista(todosUsuarios, 'Coordinacion');
+
+        for (const tipoNuevo of tiposAfectados) {
+            const existe = tareasExistentes.find(t => t.tipoHito === tipoNuevo);
+            
+            if (!existe) {
+                console.log(`✨ Auto-Reparación: Creando tarea logística faltante -> ${tipoNuevo}`);
+                
+                let responsable = usuarioPadre; // Default al Encargado
+                let area = 'Produccion';
+
+                // Asignación inteligente según el tipo (igual que en createCentroMaster)
+                if ([TIPOS_LOGISTICA.GUION, TIPOS_LOGISTICA.PROG_EVENTO].includes(tipoNuevo)) {
+                    responsable = especialistaCoord || usuarioPadre;
+                    area = 'Coordinacion';
+                }
+                else if ([TIPOS_LOGISTICA.VIDEO_TBT, TIPOS_LOGISTICA.VIDEO_VIVENCIAS, TIPOS_LOGISTICA.VISUALES].includes(tipoNuevo)) {
+                    responsable = usuarioTio || usuarioPadre;
+                    area = 'Marketing';
+                }
+
+                // Usamos la función auxiliar que ya agregaste
+                await this.crearTareaSemilla(centro.nombre, { key: eventoKey }, tipoNuevo, `Tarea: ${tipoNuevo}`, responsable, area);
+            }
+        }
+    }
+    // 🌟 FIN DE LA MAGIA RETROACTIVA
+
+    // 2. BÚSQUEDA Y ACTIVACIÓN (TU LÓGICA ORIGINAL)
+    // Volvemos a buscar para asegurarnos de traer las nuevas si se crearon
     const tareas = await this.pendientesRepository.find({
         where: { nombreCentro: centro.nombre, eventoKey: eventoKey },
         relations: ['colaboradorAsignado'] 
@@ -368,8 +469,7 @@ export class MarketingService {
             
             console.log(`💉 INYECCIÓN AUTOMÁTICA EN TAREA ID: ${tarea.id}`);
 
-            // 3. ASIGNACIÓN DE JESÚS (SI ESTÁ VACÍA)
-            // Verificamos si NO tiene colaborador (null)
+            // 3. ASIGNACIÓN DE EMERGENCIA (TU LÓGICA DE JESÚS - INTACTA)
             if (!tarea.colaboradorAsignado) {
                 console.log("   -> Vacante detectada. Asignando a Jesús (ID 4).");
                 tarea.colaboradorAsignado = { id: 4 } as any; 
@@ -377,8 +477,7 @@ export class MarketingService {
                  console.log(`   -> Ya tiene dueño (ID ${tarea.colaboradorAsignado.id}). Respetando.`);
             }
 
-            // 4. ESTADO 'Pendiente' (VITAL PARA QUE JESÚS LA VEA)
-            // Igual que hicimos en la consola del navegador
+            // 4. ESTADO 'Pendiente'
             tarea.status = 'Pendiente'; 
             tarea.fechaAsignacion = new Date();
 
@@ -389,4 +488,3 @@ export class MarketingService {
 
     return { mensaje: `💉 SE INYECTARON/ACTIVARON ${arregladas} TAREAS CORRECTAMENTE.` };
   }
-} // 👈 CIERRE DEL ARCHIVO
