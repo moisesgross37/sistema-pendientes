@@ -338,13 +338,36 @@ export class MarketingService {
     if (tio !== undefined) centro.tio = tio;
     return this.centrosRepository.save(centro);
   }
-
+// =================================================================
+  // 🗑️ ELIMINAR CENTRO (VERSIÓN BLINDADA CON LOGS)
+  // =================================================================
   async deleteCentroMaster(id: number) {
-    const centro = await this.centrosRepository.findOneBy({ id });
-    if (!centro) throw new NotFoundException('Centro no encontrado');
-    return this.centrosRepository.remove(centro);
-  }
+    console.log(`🗑️ REQUEST DELETE RECIBIDO PARA ID: ${id}`); 
 
+    const centro = await this.centrosRepository.findOneBy({ id });
+    
+    if (!centro) {
+        console.warn(`❌ El centro con ID ${id} no existe en la base de datos.`);
+        throw new NotFoundException('Centro no encontrado');
+    }
+
+    try {
+        // Intentamos borrar
+        const resultado = await this.centrosRepository.remove(centro);
+        console.log(`✅ Centro "${centro.nombre}" eliminado correctamente.`);
+        return resultado;
+
+    } catch (error) {
+        console.error(`🔥 ERROR AL BORRAR ID ${id}:`, error.message);
+        
+        // Código de error Postgres para "Violación de llave foránea" (tiene hijos)
+        if (error.code === '23503') { 
+            throw new BadRequestException(`⛔ NO SE PUEDE BORRAR: El centro "${centro.nombre}" tiene tareas o datos históricos asociados. Borra sus tareas primero.`);
+        }
+        
+        throw new BadRequestException('Error de base de datos al intentar borrar.');
+    }
+  }
   // =================================================================
   // 4. MATRIZ DE ACTIVACIONES
   // =================================================================
