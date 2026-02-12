@@ -88,21 +88,35 @@ export const AdminCentros: React.FC = () => {
     }
   };
 
-  // 3. ELIMINAR (SOLO PARA LIMPIEZA)
+  // 3. ELIMINAR (MEJORADO: Dice la verdad sobre el error)
   const handleDelete = async (id: number, nombre: string) => {
-    if (!window.confirm(`⚠️ PELIGRO ⚠️\n\n¿Estás seguro de borrar "${nombre}"?\n\nSi borras este centro, podrías romper los pendientes históricos asociados a él.`)) {
+    // Confirmación de seguridad
+    if (!window.confirm(`⚠️ ¿Estás SEGURO de borrar "${nombre}"?\n\nEsta acción no se puede deshacer.`)) {
         return;
     }
 
     try {
-        const res = await fetch(`${API_URL}/marketing/admin/centro/${id}`, { method: 'DELETE' });
+        console.log(`Intentando borrar ID: ${id}...`);
+
+        // 👇 La URL correcta (que ya tenías bien)
+        const res = await fetch(`${API_URL}/marketing/admin/centro/${id}`, { 
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
         if (res.ok) {
-            fetchCentros();
+            alert("✅ Eliminado correctamente.");
+            fetchCentros(); // Refrescar la tabla
         } else {
-            alert("No se pudo eliminar. Es posible que tenga datos asociados.");
+            // 👇 AQUÍ LA MAGIA: Leemos el mensaje de error que nos manda el Backend
+            const errorData = await res.json().catch(() => ({ message: "Error desconocido" }));
+            
+            // Mostramos el mensaje real (Ej: "No se puede borrar porque tiene tareas")
+            alert(`❌ Error al eliminar:\n${errorData.message || "El servidor rechazó la solicitud."}`);
         }
     } catch (error) {
-        console.error(error);
+        console.error("Error de red:", error);
+        alert("Error de conexión. Revisa tu internet o la consola.");
     }
   };
 
