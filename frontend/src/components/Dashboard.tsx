@@ -1921,31 +1921,26 @@ return (
                                             <td className="text-end pe-4">
                                                 <div className="d-flex justify-content-end gap-2">
                                                     <Button 
-                                                        variant="outline-primary" size="sm" 
-                                                        onClick={() => {
-                                                            setEditingId(centro.id);
-                                                            setNewCentroNombre(centro.nombre);
-                                                            setNewCentroTipo(centro.tipo || 'cliente');
-                                                            setNewCentroAsesor(centro.asesor || '');
-                                                            setNewCentroPadre(centro.padre || '');
-                                                            setNewCentroTio(centro.tio || '');
-                                                            setShowCrearCentroModal(true);
-                                                        }}
-                                                    >
-                                                        <i className="bi bi-pencil-square"></i>
-                                                    </Button>
-                                                    <Button 
                                                         variant="outline-danger" size="sm"
                                                         onClick={async () => {
-                                                            if (confirm(`🛑 ¿Borrar "${centro.nombre}"?`)) {
+                                                            if (confirm(`🛑 ¿Seguro que deseas borrar "${centro.nombre}"?`)) {
                                                                 try {
-                                                                    const res = await fetch(`https://sistema-pendientes.onrender.com/marketing/centros/${centro.id}`, { method: 'DELETE' });
+                                                                    // 👇 AQUÍ ESTÁ EL CAMBIO: 'admin/centro'
+                                                                    const res = await fetch(`https://sistema-pendientes.onrender.com/marketing/admin/centro/${centro.id}`, { method: 'DELETE' });
+                                                                    
                                                                     if (res.ok) {
+                                                                        // Si se borró, lo quitamos de la lista visualmente
                                                                         setListaCentros(prev => prev.filter(c => c.id !== centro.id));
+                                                                        alert("✅ Centro eliminado.");
                                                                     } else {
-                                                                        alert("❌ Error: No se pudo borrar.");
+                                                                        // Leemos el error real del backend (Ej: "Tiene tareas asociadas")
+                                                                        const errorData = await res.json().catch(() => ({ message: "Error desconocido" }));
+                                                                        alert(`❌ No se pudo borrar:\n${errorData.message}`);
                                                                     }
-                                                                } catch (err) { console.error(err); }
+                                                                } catch (err) { 
+                                                                    console.error(err);
+                                                                    alert("Error de conexión.");
+                                                                }
                                                             }
                                                         }}
                                                     >
