@@ -488,3 +488,4 @@ export class MarketingService {
 
     return { mensaje: `💉 SE INYECTARON/ACTIVARON ${arregladas} TAREAS CORRECTAMENTE.` };
   }
+}
