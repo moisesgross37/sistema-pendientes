@@ -125,32 +125,54 @@ export class PendientesService {
     return this.pendientesRepository.find({ where: { colaboradorAsignado: { id: userId } }, relations: ['casos', 'asesor'], order: { id: 'DESC' } }); 
   }
 
-  // 3. UPDATE & DOMINÓ
-  async update(id: number, updateDto: UpdatePendienteDto) {
+ // 3. UPDATE & DOMINÓ (Versión con registro de transferencia)
+  async update(id: number, updateDto: UpdatePendienteDto | any) {
     const pendiente = await this.findOne(id);
     const estadoAnterior = pendiente.status;
 
+    // 👇 LÓGICA DE TRANSFERENCIA E HISTORIAL
     if (updateDto.colaboradorAsignadoId) {
+        // Solo actuamos si el nuevo encargado es distinto al que ya estaba
         if (updateDto.colaboradorAsignadoId !== pendiente.colaboradorAsignado?.id) {
-            const user = await this.usuariosRepository.findOneBy({ id: updateDto.colaboradorAsignadoId });
-            if (user) { pendiente.colaboradorAsignado = user; pendiente.fechaAsignacion = new Date(); }
+            const nuevoAsignado = await this.usuariosRepository.findOneBy({ id: updateDto.colaboradorAsignadoId });
+            
+            // Buscamos quién es el autor del movimiento usando el ID que enviamos desde el Front
+            const autorMovimiento = updateDto.autorId 
+                ? await this.usuariosRepository.findOneBy({ id: updateDto.autorId }) 
+                : null;
+            
+            const nombreAutor = autorMovimiento ? autorMovimiento.username : 'SISTEMA';
+
+            if (nuevoAsignado) { 
+                pendiente.colaboradorAsignado = nuevoAsignado; 
+                pendiente.fechaAsignacion = new Date(); 
+                
+                // 📝 AGREGAMOS EL MOVIMIENTO AL HISTORIAL
+                const notaFinal = updateDto.notaTransferencia || `Tarea transferida a ${nuevoAsignado.username}.`;
+                
+                pendiente.historial.push({
+                    fecha: new Date(),
+                    autor: nombreAutor, // Aquí aparecerá tu nombre
+                    accion: 'TRANSFERENCIA',
+                    nota: notaFinal
+                });
+            }
         }
+        // Limpiamos los campos que no pertenecen a la tabla 'Pendiente' antes de guardar
         delete updateDto.colaboradorAsignadoId;
+        delete updateDto.autorId; 
     }
 
+    // Aplicamos el resto de los cambios (como el status)
     Object.assign(pendiente, updateDto);
     const actualizado = await this.pendientesRepository.save(pendiente);
 
+    // Lógica de efecto dominó (se mantiene igual)
     const esTerminado = (actualizado.status === 'Terminado' || actualizado.status === 'Concluido' || actualizado.status === 'En Impresión');
     if (esTerminado && estadoAnterior !== actualizado.status) {
         await this.procesarEfectoDomino(actualizado);
     }
     return actualizado;
-  }
-
-  async remove(id: number) {
-    const p = await this.findOne(id);
-    return this.pendientesRepository.remove(p);
   }
 // ==========================================
   // 📝 LÓGICA PARA GUARDAR EN LA BITÁCORA
