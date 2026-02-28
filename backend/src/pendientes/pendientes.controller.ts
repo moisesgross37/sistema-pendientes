@@ -142,25 +142,25 @@ export class PendientesController {
         // ❌ No está en ningún lado
         return res.status(404).json({ message: 'Imagen no encontrada en el servidor' });
     }
-  }
-// ==========================================
-  // 📝 NUEVA RUTA: AGREGAR COMENTARIO (CORREGIDA)
+  }// ==========================================
+  // 📝 NUEVA RUTA: AGREGAR COMENTARIO (BLINDADA)
   // ==========================================
   @Post(':id/historial')
   async agregarComentario(
     @Param('id') id: number,
-    @Body() body: { nota: string; accion?: string },
+    @Body() body: { nota: string; accion?: string; autor?: string }, // 👈 Agregamos autor aquí
     @Req() req: any,
   ) {
-    // 🛡️ CORRECCIÓN AQUÍ: 
-    // Si req.user existe, usamos el username. Si no, usamos 'Sistema' o 'Anónimo'.
-    // Esto evita que explote si la autenticación falla por un segundo.
-    const nombreAutor = (req.user && req.user.username) ? req.user.username : 'Sistema/Anónimo';
+    // 🛡️ LÓGICA DE PRIORIDAD:
+    // 1. Usamos el autor que viene en el body (del Frontend).
+    // 2. Si no viene, usamos el nombre de la sesión (req.user).
+    // 3. Si nada funciona, ponemos 'SISTEMA'.
+    const nombreAutor = body.autor || (req.user && req.user.username) || 'SISTEMA';
 
     return this.pendientesService.agregarComentario(
       Number(id),
       body.nota,
-      nombreAutor, // Usamos la variable segura
+      nombreAutor, 
       body.accion || 'COMENTARIO',
     );
   }
