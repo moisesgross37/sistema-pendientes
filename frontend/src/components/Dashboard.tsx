@@ -2322,14 +2322,16 @@ return (
             <div className="card-body p-0">
               <div className="row g-0">
                 {rankingColaboradores.map((colab, index) => {
+                 // Lógica de colores visuales: 
+                  // 0 a 3 días = Verde | 4 a 6 días = Naranja | 7 o más días = Rojo
                   let colorClass = "text-success";
                   let icon = "bi-check-circle-fill";
                   
-                  if (colab.maxDias >= 3) {
-                    colorClass = "text-danger";
+                  if (colab.maxDias >= 7) {
+                    colorClass = "text-danger fw-bold"; // Rojo intenso si pasa de 7 días
                     icon = "bi-exclamation-octagon-fill";
-                  } else if (colab.maxDias >= 1) {
-                    colorClass = "text-warning";
+                  } else if (colab.maxDias >= 4) {
+                    colorClass = "text-warning"; // Naranja de advertencia
                     icon = "bi-exclamation-triangle-fill";
                   }
 
@@ -2360,7 +2362,7 @@ return (
       })()}
       {/* 👆 👆 FIN DEL PANEL DE TIEMPOS 👆 👆 */}
 
-      
+
 {/* ======================================================= */}
 {/* 🚀 TABLA FINAL LIMPIA (SIN COLUMNA EQUIPO) 🚀 */}
 {/* ======================================================= */}
