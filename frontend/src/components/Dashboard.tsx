@@ -1448,6 +1448,48 @@ const getResumenEstadoProyecto = (
       alert('Error al asignar el encargado principal.');
     }
   };
+// ==========================================
+  // 🏆 LÓGICA: RANKING DE RESOLUCIÓN (TIEMPOS)
+  // ==========================================
+  const generarRanking = () => {
+    // 1. Tomamos solo las tareas de la pestaña "Activos" (Pendiente o En Revisión) que tengan un encargado
+    const tareasActivas = listaProyectos.filter(t => 
+      t.colaboradorAsignado && 
+      (t.status === 'Pendiente' || t.status === 'En Revisión')
+    );
+
+    const rankingMap = new Map();
+
+    // 2. Agrupamos por encargado y calculamos su peor tarea
+    tareasActivas.forEach(tarea => {
+      const nombre = tarea.colaboradorAsignado.username;
+      // Calculamos días desde que se le asignó la tarea
+      const fechaInicio = new Date(tarea.fechaAsignacion || tarea.fechaCreacion || new Date());
+      const hoy = new Date();
+      // Diferencia en días (redondeado hacia abajo)
+      const diasRetraso = Math.floor((hoy.getTime() - fechaInicio.getTime()) / (1000 * 3600 * 24));
+
+      if (!rankingMap.has(nombre)) {
+        rankingMap.set(nombre, { nombre, totalTareas: 0, maxDias: 0 });
+      }
+
+      const data = rankingMap.get(nombre);
+      data.totalTareas += 1;
+      
+      // Si esta tarea tiene más días que la anterior registrada, actualizamos su "peor caso"
+      if (diasRetraso > data.maxDias) {
+        data.maxDias = diasRetraso;
+      }
+    });
+
+    // 3. Convertimos a lista y ordenamos: de menor cantidad de días (mejor) a mayor (peor)
+    return Array.from(rankingMap.values()).sort((a, b) => a.maxDias - b.maxDias);
+  };
+
+  const rankingColaboradores = generarRanking();
+
+
+
   // ================================================================
   // ===== 👁️ 2. FUNCIÓN PARA ABRIR DETALLES (EL TIMBRE) 👁️ =====
   // ================================================================
@@ -2276,6 +2318,54 @@ return (
           </div>
         </div>
       )}
+
+     {rankingColaboradores.length > 0 && (
+        <div className="card shadow-sm mb-4 border-0">
+          <div className="card-header bg-white border-bottom py-3 d-flex align-items-center">
+            <h5 className="mb-0 fw-bold text-dark">
+              <i className="bi bi-bar-chart-steps text-primary me-2"></i>
+              Tiempos de Respuesta (Tareas Activas)
+            </h5>
+          </div>
+          <div className="card-body p-0">
+            <div className="row g-0">
+              {rankingColaboradores.map((colab, index) => {
+                let colorClass = "text-success";
+                let icon = "bi-check-circle-fill";
+                
+                if (colab.maxDias >= 3) {
+                  colorClass = "text-danger";
+                  icon = "bi-exclamation-octagon-fill";
+                } else if (colab.maxDias >= 1) {
+                  colorClass = "text-warning";
+                  icon = "bi-exclamation-triangle-fill";
+                }
+
+                const esElMejor = index === 0;
+                const esElPeor = index === rankingColaboradores.length - 1 && rankingColaboradores.length > 1;
+
+                return (
+                  <div key={colab.nombre} className={`col-md-3 col-sm-6 border-end border-bottom p-3 ${esElPeor ? 'bg-danger bg-opacity-10' : ''}`}>
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <span className="fw-bold text-dark">
+                        {esElMejor ? '🏆 ' : ''} {index + 1}. {colab.nombre}
+                      </span>
+                      <i className={`bi ${icon} ${colorClass} fs-5`}></i>
+                    </div>
+                    <div className="text-muted small mb-1">
+                      Tareas en fila: <strong className="text-dark">{colab.totalTareas}</strong>
+                    </div>
+                    <div className={`small fw-bold ${colorClass}`}>
+                      Peor caso: {colab.maxDias} {colab.maxDias === 1 ? 'día' : 'días'} estancado
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+       
 {/* ======================================================= */}
 {/* 🚀 TABLA FINAL LIMPIA (SIN COLUMNA EQUIPO) 🚀 */}
 {/* ======================================================= */}
