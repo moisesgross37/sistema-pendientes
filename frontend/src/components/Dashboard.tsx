@@ -269,17 +269,17 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
       console.error(err);
     }
   };
-  // ==========================================
-  // 📨 FUNCIÓN: ENVIAR NOTA A LA BITÁCORA (CORREGIDA)
+// ==========================================
+  // 📨 FUNCIÓN: ENVIAR NOTA A LA BITÁCORA (CON IDENTIDAD)
   // ==========================================
   const handleEnviarNota = async () => {
-    // 1. Validaciones de seguridad
-    if (!nuevaNota.trim()) return; 
-    if (!viewingTask) return; // 👈 CORREGIDO: Ahora mira la variable correcta
+    if (!nuevaNota.trim() || !viewingTask) return;
 
     setEnviandoNota(true);
     try {
-      // 2. Enviar al Backend
+      // 👇 Tomamos tu nombre del estado global del usuario
+      const usuarioActual = user ? user.username : 'Usuario';
+
       const res = await fetch(`${API_URL}/pendientes/${viewingTask.id}/historial`, {
         method: 'POST',
         headers: {
@@ -288,14 +288,12 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
         },
         body: JSON.stringify({ 
             nota: nuevaNota, 
-            accion: 'COMENTARIO' 
+            accion: 'COMENTARIO',
+            autor: usuarioActual // 👈 Ahora el servidor sabrá quién eres
         })
       });
 
       if (res.ok) {
-        // 3. Actualizar la pantalla VISIBLE (viewingTask)
-        const usuarioActual = user ? user.username : 'Yo';
-        
         const nuevoEvento = {
             fecha: new Date().toISOString(),
             autor: usuarioActual,
@@ -303,17 +301,14 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
             nota: nuevaNota
         };
 
-        // Clonamos la tarea actual y le pegamos el mensaje
         const tareaActualizada = { ...viewingTask };
         if (!tareaActualizada.historial) tareaActualizada.historial = [];
         tareaActualizada.historial.push(nuevoEvento);
         
-        // 👇 AQUÍ ESTABA EL ERROR: Ahora actualizamos la variable correcta
         setViewingTask(tareaActualizada); 
-        
-        setNuevaNota(''); // Limpia la cajita
+        setNuevaNota(''); 
       } else {
-        alert("⚠️ El servidor no guardó la nota. Intenta de nuevo.");
+        alert("⚠️ El servidor no guardó la nota.");
       }
     } catch (error) {
       console.error(error);
@@ -322,7 +317,8 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
       setEnviandoNota(false);
     }
   };
-// ======================================================
+  
+  // ======================================================
   // 🧠 LÓGICA DEL BUSCADOR INTELIGENTE (AUTOCOMPLETE) 🧠
   // ======================================================
   const [centroOptions, setCentroOptions] = useState<{value: string, label: string}[]>([]);
