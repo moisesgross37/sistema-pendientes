@@ -2261,7 +2261,7 @@ return (
                         </span>
                       </h6>
                       <small className="text-muted">
-                        Encargado: <strong>{task.colaboradorAsignado?.username}</strong> • Esperando desde: {new Date(task.fechaAsignacion || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        Encargado: <strong>{task.colaboradorAsignado?.username}</strong> • Esperando desde el <strong>{new Date(task.fechaAsignacion || new Date()).toLocaleDateString()}</strong> a las {new Date(task.fechaAsignacion || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </small>
                     </div>
                   </div>
