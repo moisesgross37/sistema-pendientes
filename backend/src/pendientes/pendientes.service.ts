@@ -174,6 +174,11 @@ export class PendientesService {
     }
     return actualizado;
   }
+  // 👇 PEGA ESTO PARA ARREGLAR EL ERROR DE RENDER
+  async remove(id: number) {
+    const p = await this.findOne(id);
+    return this.pendientesRepository.remove(p);
+  }
 // ==========================================
   // 📝 LÓGICA PARA GUARDAR EN LA BITÁCORA
   // ==========================================
