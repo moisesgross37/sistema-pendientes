@@ -711,7 +711,7 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
       setIsLoading(false);
     }
   };
-  // --- FUNCIÓN DE TRANSFERENCIA (Conectada al Backend) ---
+ // --- FUNCIÓN DE TRANSFERENCIA (CON FIRMA DE AUTOR) ---
   const handleTransferir = async () => {
     if (!transferDestino) {
       alert("⚠️ Por favor selecciona un destino primero.");
@@ -719,33 +719,36 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
     }
 
     try {
+      // 👇 LÍNEA NUEVA: Obtenemos tu ID desde el token
+      const decodedToken: any = jwtDecode(token);
+      const miUsuarioId = decodedToken.sub;
+
       const response = await fetch(`${API_URL}/pendientes/${viewingTask.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        // Enviamos el ID directo para que el Backend active la lógica de transferencia
         body: JSON.stringify({
           colaboradorAsignadoId: Number(transferDestino), 
-          status: 'Pendiente', // Reactivamos la tarea al transferir
+          status: 'Pendiente',
+          // 👇 LÍNEA NUEVA: Enviamos tu ID al servidor
+          autorId: miUsuarioId, 
           notaTransferencia: 'Transferencia manual desde Dashboard' 
         }),
       });
 
       if (!response.ok) throw new Error('Error al transferir la tarea');
 
-      // Éxito
       alert("✅ Tarea transferida correctamente.");
-      setViewingTask(null); // Cerramos la ventana
-      setTransferDestino(''); // Limpiamos el selector
+      setViewingTask(null);
+      setTransferDestino('');
       
-      // Recargamos la tabla según el rol
       if (userRole) fetchPendientes(userRole);
 
     } catch (error) {
       console.error(error);
-      alert("❌ No se pudo transferir la tarea. Revisa la consola.");
+      alert("❌ No se pudo transferir la tarea.");
     }
   };
   // ==========================================
