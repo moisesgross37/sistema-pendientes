@@ -68,6 +68,9 @@ export class PendientesService {
     const asesor = await this.usuariosRepository.findOneBy({ id: asesorId });
     if (!asesor) throw new NotFoundException(`Asesor no encontrado`);
 
+    // 👇 Capturamos el nombre real del usuario que crea la tarea
+    const nombreAutor = asesor.username;
+
     let colaboradorFinal: Usuario | null = null;
     let statusInicial = 'Por Asignar';
     let fechaAsignacionInicial: Date | null = null;
@@ -93,7 +96,8 @@ export class PendientesService {
     const nuevo = this.pendientesRepository.create({
         nombreCentro, asesor, area: area || 'Produccion', colaboradorAsignado: colaboradorFinal,
         status: statusInicial, fechaAsignacion: fechaAsignacionInicial, fechaCreacion: new Date(),
-        historial: [{ fecha: new Date(), autor: 'SISTEMA', nota: 'Creación', accion: 'Creación' }],
+        // 👇 AQUÍ USAMOS LA VARIABLE nombreAutor EN LUGAR DE 'SISTEMA'
+        historial: [{ fecha: new Date(), autor: nombreAutor, nota: 'Creación', accion: 'Creación' }],
         casos: casos, esHito: createPendienteDto.esHito, eventoKey: createPendienteDto.eventoKey, tipoHito: createPendienteDto.tipoHito
     });
     return this.pendientesRepository.save(nuevo);
