@@ -46,6 +46,11 @@ const [modoVista, setModoVista] = useState<'activos' | 'historial'>('activos');
 const [searchTerm, setSearchTerm] = useState('');
 const [transferDestino, setTransferDestino] = useState('');
 const [filtroPadre, setFiltroPadre] = useState('');
+// Estados para los filtros de Proyectos Activos (Nombres únicos)
+  const [filtroTextoActivos, setFiltroTextoActivos] = useState('');
+  const [filtroEncargadoActivos, setFiltroEncargadoActivos] = useState('');
+  const [filtroTiempoActivos, setFiltroTiempoActivos] = useState('');
+  const [filtroEstadoActivos, setFiltroEstadoActivos] = useState('');
 // 📝 ESTADO PARA EL CHAT DE LA TAREA
   const [nuevaNota, setNuevaNota] = useState('');
   const [enviandoNota, setEnviandoNota] = useState(false);
@@ -2362,161 +2367,251 @@ return (
       })()}
       {/* 👆 👆 FIN DEL PANEL DE TIEMPOS 👆 👆 */}
 
-
 {/* ======================================================= */}
-{/* 🚀 TABLA FINAL LIMPIA (SIN COLUMNA EQUIPO) 🚀 */}
-{/* ======================================================= */}
-<div className="card shadow-sm border-0 overflow-hidden mb-5">
-  {/* 1. ENCABEZADO */}
-  <div className="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
-    <h5 className="mb-0 fw-bold"><i className="bi bi-kanban me-2"></i> Proyectos Activos</h5>
-    <span className="badge bg-white text-primary rounded-pill px-3">{filteredPendientes.length} En Curso</span>
-  </div>
+      {/* 🔍 BARRA DE FILTROS PARA PROYECTOS ACTIVOS              */}
+      {/* ======================================================= */}
+      <div className="card shadow-sm border-0 mb-3 bg-white">
+        <div className="card-body py-2">
+          <div className="row g-2 align-items-center">
+            
+            {/* 1. Búsqueda por Centro o ID */}
+            <div className="col-12 col-md-3">
+              <div className="input-group input-group-sm">
+                <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
+                <input 
+                  type="text" 
+                  className="form-control border-start-0 ps-0" 
+                  placeholder="Buscar centro, ID o misión..." 
+                  value={filtroTextoActivos} 
+                  onChange={e => setFiltroTextoActivos(e.target.value)} 
+                />
+              </div>
+            </div>
+            
+            {/* 2. Filtro por Encargado */}
+            <div className="col-12 col-md-3">
+              <select 
+                className="form-select form-select-sm border-light-subtle" 
+                value={filtroEncargadoActivos} 
+                onChange={e => setFiltroEncargadoActivos(e.target.value)}
+              >
+                <option value="">👤 Todos los encargados</option>
+                {Array.from(new Set(listaProyectos.filter(t => t.colaboradorAsignado).map(t => t.colaboradorAsignado.username))).sort().map(nombre => (
+                  <option key={nombre as string} value={nombre as string}>{nombre as string}</option>
+                ))}
+              </select>
+            </div>
 
-  {/* 2. CUERPO DE LA TABLA */}
-  <div className="table-responsive">
-    <Table hover responsive className="align-middle mb-0 bg-white">
-      <thead className="bg-light text-secondary">
-        <tr>
-          <th className="py-3 ps-3">ID / Centro</th>
-          <th>Encargado</th>
-          <th style={{width: '40%'}}>Misión Actual</th> {/* Le di más espacio a la Misión */}
-          <th className="text-center">Tiempo</th>
-          <th className="text-center">Estado</th>
-          <th className="text-center pe-3">Acción</th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredPendientes.map((item) => {
-           
-           // A. CÁLCULO DE TIEMPO
-           const fechaBase = item.fechaAsignacion ? new Date(item.fechaAsignacion) : new Date(item.fechaCreacion);
-           const diffTime = Math.abs(new Date().getTime() - fechaBase.getTime());
-           const dias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-           
-           // B. ALERTA DE COLORES
-           let relojColor = 'bg-light text-muted border'; 
-           if (dias >= 2) relojColor = 'bg-warning text-dark border-warning';
-           if (dias >= 4) relojColor = 'bg-danger text-white border-danger';
+            {/* 3. Filtro por Tiempo */}
+            <div className="col-12 col-md-3">
+              <select 
+                className="form-select form-select-sm border-light-subtle" 
+                value={filtroTiempoActivos} 
+                onChange={e => setFiltroTiempoActivos(e.target.value)}
+              >
+                <option value="">⏱️ Cualquier tiempo</option>
+                <option value="normal">🟢 Normal (0 a 6 días)</option>
+                <option value="alerta">🟠 Alerta (7 a 14 días)</option>
+                <option value="critico">🔴 Crítico (15+ días)</option>
+              </select>
+            </div>
 
-           // C. ESTADO
-           let etiquetaEstado = item.status;
-           let bgEstado = 'secondary';
-           if (item.status === 'Pendiente') bgEstado = 'warning'; 
-           if (item.status === 'En Revisión') bgEstado = 'info';  
-           if (item.status === 'Concluido') bgEstado = 'success'; 
-           
-           const esVacante = !item.colaboradorAsignado;
-           if (esVacante) { etiquetaEstado = 'Por Asignar'; bgEstado = 'primary'; }
+            {/* 4. Filtro por Estado */}
+            <div className="col-12 col-md-3">
+              <select 
+                className="form-select form-select-sm border-light-subtle" 
+                value={filtroEstadoActivos} 
+                onChange={e => setFiltroEstadoActivos(e.target.value)}
+              >
+                <option value="">📌 Todos los estados</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="En Revisión">En Revisión</option>
+              </select>
+            </div>
 
-           return (
-            <tr key={item.id} className="border-bottom">
-              {/* 1. ID Y CENTRO */}
-              <td className="ps-3">
-                 <span className="text-muted small fw-bold d-block">#{item.id}</span>
-                 <span className="fw-bold text-dark">{item.nombreCentro}</span>
-              </td>
+          </div>
+        </div>
+      </div>
 
-              {/* 2. ENCARGADO */}
-              <td>
-                <div className="d-flex align-items-center gap-2">
-                   {!esVacante ? (
-                     <>
-                       <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style={{width: '30px', height: '30px', fontSize: '12px'}}>
-                         {item.colaboradorAsignado.username.charAt(0).toUpperCase()}
-                       </div>
-                       <span className="fw-bold text-dark small">{item.colaboradorAsignado.username}</span>
-                     </>
-                   ) : (
-                     <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">Vacante</span>
-                   )}
-                </div>
-              </td>
+      {/* ======================================================= */}
+      {/* 🚀 TABLA FINAL LIMPIA (CON COLUMNA TIEMPO TOTAL Y FILTROS CONECTADOS) 🚀 */}
+      {/* ======================================================= */}
+      {(() => {
+        // 1. EL EMBUDO: Pasamos los datos por los 4 filtros
+        const proyectosFiltradosFinal = filteredPendientes.filter((item: any) => {
+          
+          // A. Filtro de Texto (Busca en ID, Centro y Misión)
+          const texto = filtroTextoActivos.toLowerCase();
+          const matchTexto = texto === '' || 
+            item.id.toString().includes(texto) || 
+            (item.nombreCentro && item.nombreCentro.toLowerCase().includes(texto)) ||
+            (item.casos && item.casos.length > 0 && item.casos[0].descripcion.toLowerCase().includes(texto));
 
-              {/* 3. MISIÓN (ESTILO GMAIL) */}
-              <td>
-                {item.casos && item.casos.length > 0 ? (
-                    <div className="d-flex flex-column">
-                        <span className="fw-bold text-primary" style={{ fontSize: '0.95rem' }}>
-                            {item.casos[0].descripcion.includes(':') 
-                                ? item.casos[0].descripcion.split(':')[0] 
-                                : (item.casos[0].tipo_servicio || 'Misión Activa')}
-                        </span>
-                        <span className="text-muted small text-truncate" style={{ maxWidth: '350px' }}>
-                            {item.casos[0].descripcion.includes(':') 
-                                ? item.casos[0].descripcion.split(':')[1] 
-                                : item.casos[0].descripcion}
-                        </span>
-                    </div>
-                ) : (
-                    <span className="text-muted fst-italic small">Sin detalles...</span>
-                )}
-              </td>
+          // B. Filtro de Encargado
+          const matchEncargado = filtroEncargadoActivos === '' || 
+            (item.colaboradorAsignado && item.colaboradorAsignado.username === filtroEncargadoActivos);
 
-              {/* 4. TIEMPO */}
-              <td className="text-center">
-                <span className={`badge rounded-pill fw-normal ${relojColor}`} style={{minWidth: '45px'}}>
-                    {dias}d
-                </span>
-              </td>
+          // C. Filtro de Estado
+          const matchEstado = filtroEstadoActivos === '' || item.status === filtroEstadoActivos;
 
-              {/* (COLUMNA EQUIPO BORRADA AQUÍ) 🗑️ */}
+          // D. Filtro de Tiempo
+          let matchTiempo = true;
+          if (filtroTiempoActivos !== '') {
+            const fechaBaseActual = item.fechaAsignacion ? new Date(item.fechaAsignacion) : new Date(item.fechaCreacion);
+            const diasActual = Math.floor(Math.abs(new Date().getTime() - fechaBaseActual.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (filtroTiempoActivos === 'normal') matchTiempo = diasActual <= 6;
+            if (filtroTiempoActivos === 'alerta') matchTiempo = diasActual >= 7 && diasActual <= 14;
+            if (filtroTiempoActivos === 'critico') matchTiempo = diasActual >= 15;
+          }
 
-              {/* 5. ESTADO */}
-              <td className="text-center"><Badge bg={bgEstado} className="fw-normal px-3">{etiquetaEstado}</Badge></td>
+          // La tarea solo se muestra si pasa TODAS las pruebas
+          return matchTexto && matchEncargado && matchEstado && matchTiempo;
+        });
 
-              {/* 7. ACCIONES (SEGURIDAD APLICADA 🔒) */}
-              <td className="text-center pe-3">
-                <div className="d-flex gap-2 justify-content-center">
-                    
-                    {/* A. BOTÓN VER (OCULTO PARA ASESORES) */}
-                    {userRole !== 'Asesor' && (
-                        <Button 
-                            variant="outline-primary" 
-                            size="sm" 
-                            onClick={() => setViewingTask(item)}
-                            title="Gestionar Proyecto"
-                        >
-                            Ver
-                        </Button>
-                    )}
+        // 2. DIBUJAMOS LA TABLA CON LOS DATOS YA FILTRADOS
+        return (
+          <div className="card shadow-sm border-0 overflow-hidden mb-5">
+            {/* 1. ENCABEZADO */}
+            <div className="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+              <h5 className="mb-0 fw-bold"><i className="bi bi-kanban me-2"></i> Proyectos Activos</h5>
+              <span className="badge bg-white text-primary rounded-pill px-3">{proyectosFiltradosFinal.length} En Curso</span>
+            </div>
 
-                    {/* B. BOTÓN BORRAR (SOLO ADMIN) */}
-                    {(userRole === 'Administrador' || userRole === 'admin') && (
-                        <Button 
-                            variant="outline-danger" 
-                            size="sm" 
-                            onClick={async () => {
-                                if(confirm("¿Estás seguro de borrar este proyecto permanentemente?")) {
-                                    await fetch(`${API_URL}/pendientes/${item.id}`, { method: 'DELETE' });
-                                    window.location.reload();
-                                }
-                            }}
-                            title="Eliminar del Sistema"
-                        >
-                            <i className="bi bi-trash"></i>
-                        </Button>
-                    )}
+            {/* 2. CUERPO DE LA TABLA */}
+            <div className="table-responsive">
+              <Table hover responsive className="align-middle mb-0 bg-white">
+                <thead className="bg-light text-secondary">
+                  <tr>
+                    <th className="py-3 ps-3">ID / Centro</th>
+                    <th>Encargado</th>
+                    <th style={{width: '35%'}}>Misión Actual</th>
+                    <th className="text-center">Tiempo</th>
+                    <th className="text-center">Tiempo Total</th>
+                    <th className="text-center">Estado</th>
+                    <th className="text-center pe-3">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proyectosFiltradosFinal.map((item: any) => {
+                     // A. CÁLCULO DE TIEMPO (ENCARGADO ACTUAL)
+                     const fechaBaseActual = item.fechaAsignacion ? new Date(item.fechaAsignacion) : new Date(item.fechaCreacion);
+                     const diffTimeActual = Math.abs(new Date().getTime() - fechaBaseActual.getTime());
+                     const diasActual = Math.floor(diffTimeActual / (1000 * 60 * 60 * 24));
 
-                    {/* C. MENSAJE PARA ASESOR (Opcional, para que no se vea vacío) */}
-                    {userRole === 'Asesor' && (
-                        <span className="text-muted small fst-italic">
-                            <i className="bi bi-eye-slash me-1"></i>
-                            En Proceso
-                        </span>
-                    )}
-                </div>
-              </td>
-            </tr>
-           );
-        })}
-      </tbody>
-    </Table>
-  </div>
-  <div className="card-footer bg-light text-end text-muted small py-2">
-    Mostrando {filteredPendientes.length} proyectos
-  </div>
-</div>
+                     // A2. CÁLCULO DE TIEMPO TOTAL (DESDE QUE NACIÓ EL HITO)
+                     const fechaBaseTotal = new Date(item.fechaCreacion);
+                     const diffTimeTotal = Math.abs(new Date().getTime() - fechaBaseTotal.getTime());
+                     const diasTotal = Math.floor(diffTimeTotal / (1000 * 60 * 60 * 24));
+                     
+                     // B. ALERTA DE COLORES
+                     let relojColorActual = 'bg-light text-muted border'; 
+                     if (diasActual >= 7) relojColorActual = 'bg-warning text-dark border-warning';
+                     if (diasActual >= 15) relojColorActual = 'bg-danger text-white border-danger';
+
+                     let relojColorTotal = 'bg-light text-muted border'; 
+                     if (diasTotal >= 7) relojColorTotal = 'bg-warning text-dark border-warning';
+                     if (diasTotal >= 15) relojColorTotal = 'bg-danger text-white border-danger';
+
+                     // C. ESTADO
+                     let etiquetaEstado = item.status;
+                     let bgEstado = 'secondary';
+                     if (item.status === 'Pendiente') bgEstado = 'warning'; 
+                     if (item.status === 'En Revisión') bgEstado = 'info';  
+                     if (item.status === 'Concluido') bgEstado = 'success'; 
+                     
+                     const esVacante = !item.colaboradorAsignado;
+                     if (esVacante) { etiquetaEstado = 'Por Asignar'; bgEstado = 'primary'; }
+
+                     return (
+                      <tr key={item.id} className="border-bottom">
+                        <td className="ps-3">
+                           <span className="text-muted small fw-bold d-block">#{item.id}</span>
+                           <span className="fw-bold text-dark">{item.nombreCentro}</span>
+                        </td>
+                        <td>
+                          <div className="d-flex align-items-center gap-2">
+                             {!esVacante ? (
+                               <>
+                                 <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style={{width: '30px', height: '30px', fontSize: '12px'}}>
+                                   {item.colaboradorAsignado.username.charAt(0).toUpperCase()}
+                                 </div>
+                                 <span className="fw-bold text-dark small">{item.colaboradorAsignado.username}</span>
+                               </>
+                             ) : (
+                               <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">Vacante</span>
+                             )}
+                          </div>
+                        </td>
+                        <td>
+                          {item.casos && item.casos.length > 0 ? (
+                              <div className="d-flex flex-column">
+                                  <span className="fw-bold text-primary" style={{ fontSize: '0.95rem' }}>
+                                      {item.casos[0].descripcion.includes(':') 
+                                          ? item.casos[0].descripcion.split(':')[0] 
+                                          : (item.casos[0].tipo_servicio || 'Misión Activa')}
+                                  </span>
+                                  <span className="text-muted small text-truncate" style={{ maxWidth: '350px' }}>
+                                      {item.casos[0].descripcion.includes(':') 
+                                          ? item.casos[0].descripcion.split(':')[1] 
+                                          : item.casos[0].descripcion}
+                                  </span>
+                              </div>
+                          ) : (
+                              <span className="text-muted fst-italic small">Sin detalles...</span>
+                          )}
+                        </td>
+                        <td className="text-center" title="Tiempo con el encargado actual">
+                          <span className={`badge rounded-pill fw-normal ${relojColorActual}`} style={{minWidth: '45px'}}>
+                              {diasActual}d
+                          </span>
+                        </td>
+                        <td className="text-center" title="Tiempo desde que se creó el hito">
+                          <span className={`badge rounded-pill fw-normal ${relojColorTotal}`} style={{minWidth: '45px'}}>
+                              {diasTotal}d
+                          </span>
+                        </td>
+                        <td className="text-center"><Badge bg={bgEstado} className="fw-normal px-3">{etiquetaEstado}</Badge></td>
+                        <td className="text-center pe-3">
+                          <div className="d-flex gap-2 justify-content-center">
+                              {userRole !== 'Asesor' && (
+                                  <Button variant="outline-primary" size="sm" onClick={() => setViewingTask(item)} title="Gestionar Proyecto">Ver</Button>
+                              )}
+                              {(userRole === 'Administrador' || userRole === 'admin') && (
+                                  <Button variant="outline-danger" size="sm" onClick={async () => {
+                                          if(confirm("¿Estás seguro de borrar este proyecto permanentemente?")) {
+                                              await fetch(`${API_URL}/pendientes/${item.id}`, { method: 'DELETE' });
+                                              window.location.reload();
+                                          }
+                                      }} title="Eliminar del Sistema"><i className="bi bi-trash"></i></Button>
+                              )}
+                              {userRole === 'Asesor' && (
+                                  <span className="text-muted small fst-italic"><i className="bi bi-eye-slash me-1"></i>En Proceso</span>
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                     );
+                  })}
+                  
+                  {/* Mensaje por si el filtro no encuentra nada */}
+                  {proyectosFiltradosFinal.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-5 text-muted">
+                        <i className="bi bi-search fs-3 d-block mb-2"></i>
+                        No se encontraron proyectos con estos filtros.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </div>
+            <div className="card-footer bg-light text-end text-muted small py-2">
+              Mostrando {proyectosFiltradosFinal.length} proyectos
+            </div>
+          </div>
+        );
+      })()}
       {/* ================================================================ */}
       {/* ===== 💾 MODAL 1: ASIGNACIÓN RÁPIDA (SOLO ADMIN) 💾 ===== */}
       {/* ================================================================ */}
