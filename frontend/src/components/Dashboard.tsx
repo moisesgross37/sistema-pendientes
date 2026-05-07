@@ -2467,7 +2467,15 @@ return (
 
           // La tarea solo se muestra si pasa TODAS las pruebas
           return matchTexto && matchEncargado && matchEstado && matchTiempo;
+        }).sort((a: any, b: any) => {
+          // 👇 AQUÍ ESTÁ LA MAGIA DEL ORDEN 👇
+          // Calculamos usando la fecha en la que nació el hito (Tiempo Total)
+          // Al restar A - B, los más antiguos (mayor número de días) suben al principio
+          const fechaA = new Date(a.fechaCreacion).getTime();
+          const fechaB = new Date(b.fechaCreacion).getTime();
+          return fechaA - fechaB; 
         });
+
 
         // 2. DIBUJAMOS LA TABLA CON LOS DATOS YA FILTRADOS
         return (
