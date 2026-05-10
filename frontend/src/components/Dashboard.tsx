@@ -57,7 +57,10 @@ const [filtroPadre, setFiltroPadre] = useState('');
   const [busquedaCentro, setBusquedaCentro] = useState(''); // 🔍 Filtro para la tabla
 // ESTADO PARA LA NUEVA VENTANA DE TRABAJO
 const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(null);
-  // 💾 FUNCIÓN INTELIGENTE (CONECTADA Y CATEGORIZADA)
+
+
+
+// 💾 FUNCIÓN INTELIGENTE (CONECTADA Y CATEGORIZADA)
   const handleGuardarCentro = async () => {
     if (!newCentroNombre.trim()) return alert("⚠️ El nombre es obligatorio.");
 
@@ -2468,11 +2471,35 @@ return (
           // La tarea solo se muestra si pasa TODAS las pruebas
           return matchTexto && matchEncargado && matchEstado && matchTiempo;
         }).sort((a: any, b: any) => {
-          // 👇 AQUÍ ESTÁ LA MAGIA DEL ORDEN 👇
-          // Calculamos usando la fecha en la que nació el hito (Tiempo Total)
-          // Al restar A - B, los más antiguos (mayor número de días) suben al principio
-          const fechaA = new Date(a.fechaCreacion).getTime();
-          const fechaB = new Date(b.fechaCreacion).getTime();
+          // 1. Día 0 para A
+          let fechaA = new Date(a.fechaCreacion).getTime();
+          if (a.historial) {
+              const despertarA = a.historial.find((h: any) => h.nota && !h.nota.includes('Hito creado en espera'));
+              if (despertarA) {
+                  fechaA = new Date(despertarA.fecha).getTime();
+              } else if (a.fechaAsignacion) {
+                  // Salvavidas: Si no hay historial pero sí asignación
+                  fechaA = new Date(a.fechaAsignacion).getTime(); 
+              }
+          } else if (a.fechaAsignacion) {
+              fechaA = new Date(a.fechaAsignacion).getTime();
+          }
+
+          // 2. Día 0 para B
+          let fechaB = new Date(b.fechaCreacion).getTime();
+          if (b.historial) {
+              const despertarB = b.historial.find((h: any) => h.nota && !h.nota.includes('Hito creado en espera'));
+              if (despertarB) {
+                  fechaB = new Date(despertarB.fecha).getTime();
+              } else if (b.fechaAsignacion) {
+                  // Salvavidas: Si no hay historial pero sí asignación
+                  fechaB = new Date(b.fechaAsignacion).getTime(); 
+              }
+          } else if (b.fechaAsignacion) {
+              fechaB = new Date(b.fechaAsignacion).getTime();
+          }
+
+          // Ordenamos (los más viejos arriba)
           return fechaA - fechaB; 
         });
 
@@ -2507,10 +2534,24 @@ return (
                      const diffTimeActual = Math.abs(new Date().getTime() - fechaBaseActual.getTime());
                      const diasActual = Math.floor(diffTimeActual / (1000 * 60 * 60 * 24));
 
-                     // A2. CÁLCULO DE TIEMPO TOTAL (DESDE QUE NACIÓ EL HITO)
-                     const fechaBaseTotal = new Date(item.fechaCreacion);
+                     // A2. CÁLCULO DE TIEMPO TOTAL (CON SALVAVIDAS PARA TICKETS FANTASMAS)
+                     let fechaBaseTotal = new Date(item.fechaCreacion); 
+                     
+                     if (item.historial && item.historial.length > 0) {
+                         const eventoDespertar = item.historial.find((h: any) => h.nota && !h.nota.includes('Hito creado en espera'));
+                         if (eventoDespertar) {
+                             fechaBaseTotal = new Date(eventoDespertar.fecha);
+                         } else if (item.fechaAsignacion) {
+                             // Salvavidas: Si el historial está pelado pero alguien lo trabaja
+                             fechaBaseTotal = new Date(item.fechaAsignacion);
+                         }
+                     } else if (item.fechaAsignacion) {
+                         fechaBaseTotal = new Date(item.fechaAsignacion);
+                     }
+
                      const diffTimeTotal = Math.abs(new Date().getTime() - fechaBaseTotal.getTime());
                      const diasTotal = Math.floor(diffTimeTotal / (1000 * 60 * 60 * 24));
+
                      
                      // B. ALERTA DE COLORES
                      let relojColorActual = 'bg-light text-muted border'; 
