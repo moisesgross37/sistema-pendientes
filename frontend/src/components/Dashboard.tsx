@@ -25,7 +25,7 @@ interface NewCasoState { descripcion: string; files: File[]; }
 function Dashboard({ token, setView }: DashboardProps) { // 👈 PUERTA DE ENTRADA
   
   // 1. Estados Generales
-  const [pendientes, setPendientes] = useState<Pendiente[]>([]);
+    const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [pendientesFiltrados, setPendientesFiltrados] = useState<Pendiente[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -35,6 +35,10 @@ function Dashboard({ token, setView }: DashboardProps) { // 👈 PUERTA DE ENTRA
   const [showAdminCentros, setShowAdminCentros] = useState(false);
   const [showCrearCentroModal, setShowCrearCentroModal] = useState(false);
 const [showActivaciones, setShowActivaciones] = useState(false); // 🗓️ Controla la nueva ventana
+// ESTADOS PARA EL DIRECTORIO
+const [showDirectorio, setShowDirectorio] = useState(false);
+const [busquedaDirectorio, setBusquedaDirectorio] = useState('');
+const timerBusqueda = useRef<any>(null);
   // 🏭 MEMORIA PARA EL FORMULARIO DE CENTROS
   const [newCentroNombre, setNewCentroNombre] = useState('');
   const [newCentroAsesor, setNewCentroAsesor] = useState('');
@@ -58,7 +62,23 @@ const [filtroPadre, setFiltroPadre] = useState('');
 // ESTADO PARA LA NUEVA VENTANA DE TRABAJO
 const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(null);
 
-
+// 📖 FUNCIÓN PARA ABRIR Y CARGAR EL DIRECTORIO
+  const handleAbrirDirectorio = async () => {
+    setShowDirectorio(true); // Abre la ventana rápido
+    
+    // Si la lista está vacía, va a la base de datos a buscarla
+    if (!listaCentros || listaCentros.length === 0) {
+        try {
+            const respuesta = await fetch(`${API_URL}/marketing/admin/lista-centros`);
+            if (respuesta.ok) {
+                const datos = await respuesta.json();
+                setListaCentros(datos);
+            }
+        } catch (error) {
+            console.error("Error al descargar el directorio:", error);
+        }
+    }
+  };
 
 // 💾 FUNCIÓN INTELIGENTE (CONECTADA Y CATEGORIZADA)
   const handleGuardarCentro = async () => {
@@ -1725,6 +1745,15 @@ return (
                 <i className="bi bi-list-task me-2"></i> Activos
               </Button>
 
+              {/* 👇 NUEVO BOTÓN DIRECTORIO AQUÍ 👇 */}
+              <Button 
+                variant="outline-info"
+                className="rounded-pill fw-bold px-4 ms-2 text-dark border-secondary"
+                onClick={handleAbrirDirectorio}
+              >
+                <i className="bi bi-journal-bookmark-fill me-2"></i> Directorio
+              </Button>
+
               {/* Historial */}
               <Button 
                 variant={modoVista === 'historial' ? "secondary" : "outline-secondary"}
@@ -3105,6 +3134,62 @@ return (
             </Modal.Body>
           </>
         )}
+      </Modal>
+
+{/* 📖 MODAL DIRECTORIO DE CENTROS (Visible para todos) */}
+      <Modal show={showDirectorio} onHide={() => setShowDirectorio(false)} size="lg" centered>
+        <Modal.Header closeButton className="bg-light border-bottom-0 pb-2">
+          <Modal.Title className="fw-bold">
+            <i className="bi bi-journal-bookmark-fill text-primary me-2"></i>
+            Directorio de Centros
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="pt-0">
+          <Form.Control
+            type="text"
+            placeholder="🔍 Escribe para buscar un centro..."
+            className="mb-3 rounded-pill bg-light border-0 shadow-sm px-4"
+            onChange={(e: any) => {
+                // Si el usuario sigue escribiendo, borramos el temporizador anterior
+                if (timerBusqueda.current) clearTimeout(timerBusqueda.current);
+                
+                // Creamos un nuevo temporizador de 350 milisegundos (micro-pausa)
+                timerBusqueda.current = setTimeout(() => {
+                    setBusquedaDirectorio(e.target.value);
+                }, 350); 
+            }}
+          />
+          <div className="table-responsive border rounded-3 shadow-sm" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+            <Table hover className="align-middle mb-0">
+              <thead className="table-light sticky-top">
+                <tr>
+                  <th className="border-0">Nombre del Centro</th>
+                  <th className="border-0 text-center">Asesor</th>
+                  <th className="border-0 text-center">Guardián (Padre)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listaCentros
+                  ?.filter((c: any) => c.nombre.toLowerCase().includes(busquedaDirectorio.toLowerCase()))
+                  .map((centro: any) => (
+                    <tr key={centro.id}>
+                      <td className="fw-bold text-secondary">{centro.nombre}</td>
+                      <td className="text-center">{centro.asesor || '-'}</td>
+                      <td className="text-center">
+                        {centro.padre ? (
+                          <Badge bg="info" className="text-dark px-3 py-2 rounded-pill">
+                            {centro.padre}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </Table>
+          </div>
+        </Modal.Body>
       </Modal>
 
     </div>
