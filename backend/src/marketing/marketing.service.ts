@@ -8,6 +8,7 @@ import { CentroEducativo } from './entities/centro-educativo.entity';
 import { Pendiente } from '../pendientes/entities/pendiente.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { Caso } from '../casos/entities/caso.entity';
+
 import { EstadosCasosService } from '../estados-casos/estados-casos.service';
 import { CreateMarketingDto } from './dto/create-marketing.dto';
 
@@ -55,7 +56,7 @@ const normalizar = (texto: string) => {
     ? texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
     : "";
 };
-
+import { MATRIZ_FASES } from '../activaciones/fases.constant';
 @Injectable()
 export class MarketingService {
   private readonly logger = new Logger(MarketingService.name);
@@ -226,34 +227,48 @@ export class MarketingService {
         ];
 
         for (const fase of fasesASembrar) {
+            // 🧠 Buscamos la configuración en tu nuevo diccionario
+            const configFase = Object.values(MATRIZ_FASES).find((m: any) => m.key === fase.key);
+            const inst = (configFase as any)?.instrucciones || {};
+
+            // Definimos los nombres usando el diccionario o el valor por defecto
+            const nombreArtes = inst.artes ? `🎨 Artes: ${inst.artes}` : `🎨 Artes: Diseño ${fase.nombre}`;
+            const nombreRecoleccion = inst.recoleccion ? `📸 Logística: ${inst.recoleccion}` : `📸 Logística: Recolección ${fase.nombre}`;
+            const nombreEncuesta = inst.encuesta ? `📋 Marketing: ${inst.encuesta}` : `📋 Marketing: Encuestas ${fase.nombre}`;
+            const nombreRetoque = inst.edicion ? `✨ Edición: ${inst.edicion}` : `✨ Edición: Retoque ${fase.nombre}`;
+            const nombreImpresion = inst.impresion ? `🖨️ Taller: ${inst.impresion}` : `🖨️ Taller: Impresión ${fase.nombre}`;
+            const nombreWeb = inst.web ? `🌐 Web: ${inst.web}` : `🌐 Web: Carga Marketplace ${fase.nombre}`;
+
+           
             // A. Artes (Diseño)
             if (fase.key === FASES.LANZAMIENTO || fase.key === FASES.GRADUACION) {
                 await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.ARTES, 
-                    `🎨 Artes: Diseño ${fase.nombre}`, especialistaArtes || usuarioPadre, 'Artes');
+                    nombreArtes, especialistaArtes || usuarioPadre, 'Artes');
             }
 
             // B. Logística / Recolección
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.RECOLECCION, 
-                `📸 Logística: Recolección ${fase.nombre}`, especialistaColector || usuarioPadre, 'Logistica');
+                nombreRecoleccion, especialistaColector || usuarioPadre, 'Logistica');
 
             // C. Marketing / Encuestas
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.ENCUESTA, 
-                `📋 Marketing: Encuestas ${fase.nombre}`, usuarioTio || usuarioPadre, 'Marketing');
+                nombreEncuesta, usuarioTio || usuarioPadre, 'Marketing');
 
             // D. Retoque
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.RETOQUE, 
-                `✨ Edición: Retoque ${fase.nombre}`, usuarioPadre, 'Produccion');
+                nombreRetoque, usuarioPadre, 'Produccion');
 
             // E. Salidas Finales
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.IMPRESION, 
-                `🖨️ Taller: Impresión ${fase.nombre}`, especialistaImpresion || usuarioPadre, 'Impresion');
+                nombreImpresion, especialistaImpresion || usuarioPadre, 'Impresion');
 
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.WEB, 
-                `🌐 Web: Carga Marketplace ${fase.nombre}`, usuarioTio || usuarioPadre, 'Marketing');
+                nombreWeb, usuarioTio || usuarioPadre, 'Marketing');
             
             await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.REDES, 
                 `📱 Redes: Publicación Social ${fase.nombre}`, usuarioTio || usuarioPadre, 'Marketing');
 
+            // Extras Pre-Grad
             // Extras Pre-Grad
             if (fase.key === FASES.PRE_GRAD) {
                 await this.crearTareaSemilla(centroGuardado.nombre, fase, TIPOS_TAREA.REVISTA, 

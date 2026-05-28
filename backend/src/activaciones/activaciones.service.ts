@@ -86,7 +86,8 @@ export class ActivacionesService {
         if ((faseKey.includes('ARTES') || faseKey.includes('DISENO')) && tarea.tipoHito === 'ARTES_AVANZADA') {
             despertar = true;
             responsable = artesId ? { id: artesId } : null;
-            tituloMision = `🎨 Diseño: ${finalConfig.descripcion}`;
+            const textoInstruccion = finalConfig.instrucciones?.artes || finalConfig.descripcion;
+            tituloMision = `🎨 Diseño: ${textoInstruccion}`;
         }
 
         // CASO B: LOGÍSTICA (Fotos + Encuestas)
@@ -98,14 +99,16 @@ export class ActivacionesService {
             
             if (tarea.tipoHito === 'RECOLECCION') {
                 responsable = colectorId ? { id: colectorId } : null;
-                tituloMision = `📸 Fotografía: ${finalConfig.descripcion}`;
+                const textoInstruccion = finalConfig.instrucciones?.recoleccion || finalConfig.descripcion;
+                tituloMision = `📸 Fotografía: ${textoInstruccion}`;
             } 
             else if (tarea.tipoHito === 'ENCUESTA') {
                 responsable = tioId ? { id: tioId } : null;
-                tituloMision = `📋 Encuestas: Gestión de Datos`;
+                const textoInstruccion = finalConfig.instrucciones?.encuesta || 'Gestión de Datos y Formulario';
+                tituloMision = `📋 Encuestas: ${textoInstruccion}`;
             }
         }
-
+        
         if (despertar) {
             // Red de seguridad
             if (!responsable && centro.padre) {

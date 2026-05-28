@@ -23,6 +23,11 @@ export const MATRIZ_FASES = {
     key: '3',
     tipo_servicio: 'Fotografía',
     descripcion: 'Sesión de Fotos en Locación Externa',
+    instrucciones: {
+      recoleccion: 'Recolectar data de sesión en exterior',
+      artes: 'Diseño de materiales para exterior',
+      encuesta: 'Enviar encuesta sobre sesión de exterior'
+    }
   },
   
   // --- PRE-GRADUACION (ID 4) ---
