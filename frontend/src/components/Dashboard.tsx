@@ -2534,160 +2534,193 @@ return (
 
 
         // 2. DIBUJAMOS LA TABLA CON LOS DATOS YA FILTRADOS
+        
+        // A. LÓGICA BLINDADA: Si es Asesor dividimos la pantalla. Si es Admin u otro, se queda todo normal.
+        let proyectosTablaPrincipal = proyectosFiltradosFinal;
+        let proyectosTablaConcluidos: any[] = []; 
+
+        if (userRole === 'Asesor') {
+            proyectosTablaPrincipal = proyectosFiltradosFinal.filter((item: any) => item.status !== 'Concluido');
+            proyectosTablaConcluidos = proyectosFiltradosFinal.filter((item: any) => item.status === 'Concluido');
+        }
+
+        // B. CREAMOS UNA FUNCION PARA DIBUJAR LA FILA (Evita repetir código)
+        const dibujarFila = (item: any) => {
+            // CÁLCULO DE TIEMPO ACTUAL
+            const fechaBaseActual = item.fechaAsignacion ? new Date(item.fechaAsignacion) : new Date(item.fechaCreacion);
+            const diffTimeActual = Math.abs(new Date().getTime() - fechaBaseActual.getTime());
+            const diasActual = Math.floor(diffTimeActual / (1000 * 60 * 60 * 24));
+
+            // CÁLCULO DE TIEMPO TOTAL
+            let fechaBaseTotal = new Date(item.fechaCreacion); 
+            if (item.historial && item.historial.length > 0) {
+                const eventoDespertar = item.historial.find((h: any) => h.nota && !h.nota.includes('Hito creado en espera'));
+                if (eventoDespertar) {
+                    fechaBaseTotal = new Date(eventoDespertar.fecha);
+                } else if (item.fechaAsignacion) {
+                    fechaBaseTotal = new Date(item.fechaAsignacion);
+                }
+            } else if (item.fechaAsignacion) {
+                fechaBaseTotal = new Date(item.fechaAsignacion);
+            }
+            const diffTimeTotal = Math.abs(new Date().getTime() - fechaBaseTotal.getTime());
+            const diasTotal = Math.floor(diffTimeTotal / (1000 * 60 * 60 * 24));
+            
+            // COLORES
+            let relojColorActual = 'bg-light text-muted border'; 
+            if (diasActual >= 7) relojColorActual = 'bg-warning text-dark border-warning';
+            if (diasActual >= 15) relojColorActual = 'bg-danger text-white border-danger';
+
+            let relojColorTotal = 'bg-light text-muted border'; 
+            if (diasTotal >= 7) relojColorTotal = 'bg-warning text-dark border-warning';
+            if (diasTotal >= 15) relojColorTotal = 'bg-danger text-white border-danger';
+
+            // ESTADO
+            let etiquetaEstado = item.status;
+            let bgEstado = 'secondary';
+            if (item.status === 'Pendiente') bgEstado = 'warning'; 
+            if (item.status === 'En Revisión') bgEstado = 'info';  
+            if (item.status === 'Concluido') bgEstado = 'success'; 
+            
+            const esVacante = !item.colaboradorAsignado;
+            if (esVacante) { etiquetaEstado = 'Por Asignar'; bgEstado = 'primary'; }
+
+            return (
+              <tr key={item.id} className="border-bottom">
+                <td className="ps-3">
+                   <span className="text-muted small fw-bold d-block">#{item.id}</span>
+                   <span className="fw-bold text-dark">{item.nombreCentro}</span>
+                </td>
+                <td>
+                  <div className="d-flex align-items-center gap-2">
+                     {!esVacante ? (
+                       <>
+                         <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style={{width: '30px', height: '30px', fontSize: '12px'}}>
+                           {item.colaboradorAsignado.username.charAt(0).toUpperCase()}
+                         </div>
+                         <span className="fw-bold text-dark small">{item.colaboradorAsignado.username}</span>
+                       </>
+                     ) : (
+                       <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">Vacante</span>
+                     )}
+                  </div>
+                </td>
+                <td>
+                  {item.casos && item.casos.length > 0 ? (
+                      <div className="d-flex flex-column">
+                          <span className="fw-bold text-primary" style={{ fontSize: '0.95rem' }}>
+                              {item.casos[0].descripcion.includes(':') 
+                                  ? item.casos[0].descripcion.split(':')[0] 
+                                  : (item.casos[0].tipo_servicio || 'Misión Activa')}
+                          </span>
+                          <span className="text-muted small text-truncate" style={{ maxWidth: '350px' }}>
+                              {item.casos[0].descripcion.includes(':') 
+                                  ? item.casos[0].descripcion.split(':')[1] 
+                                  : item.casos[0].descripcion}
+                          </span>
+                      </div>
+                  ) : (
+                      <span className="text-muted fst-italic small">Sin detalles...</span>
+                  )}
+                </td>
+                <td className="text-center" title="Tiempo con el encargado actual">
+                  <span className={`badge rounded-pill fw-normal ${relojColorActual}`} style={{minWidth: '45px'}}>
+                      {diasActual}d
+                  </span>
+                </td>
+                <td className="text-center" title="Tiempo desde que se creó el hito">
+                  <span className={`badge rounded-pill fw-normal ${relojColorTotal}`} style={{minWidth: '45px'}}>
+                      {diasTotal}d
+                  </span>
+                </td>
+                <td className="text-center"><Badge bg={bgEstado} className="fw-normal px-3">{etiquetaEstado}</Badge></td>
+                <td className="text-center pe-3">
+                  <div className="d-flex gap-2 justify-content-center">
+                      {userRole !== 'Asesor' && (
+                          <Button variant="outline-primary" size="sm" onClick={() => setViewingTask(item)} title="Gestionar Proyecto">Ver</Button>
+                      )}
+                      {(userRole === 'Administrador' || userRole === 'admin') && (
+                          <Button variant="outline-danger" size="sm" onClick={async () => {
+                                  if(confirm("¿Estás seguro de borrar este proyecto permanentemente?")) {
+                                      await fetch(`${API_URL}/pendientes/${item.id}`, { method: 'DELETE' });
+                                      window.location.reload();
+                                  }
+                              }} title="Eliminar del Sistema"><i className="bi bi-trash"></i></Button>
+                      )}
+                      {userRole === 'Asesor' && (
+                          <span className="text-muted small fst-italic"><i className="bi bi-eye-slash me-1"></i>En Proceso</span>
+                      )}
+                  </div>
+                </td>
+              </tr>
+            );
+        };
+
+        // C. RENDERIZAMOS LA PANTALLA DIVIDIDA
         return (
-          <div className="card shadow-sm border-0 overflow-hidden mb-5">
-            {/* 1. ENCABEZADO */}
-            <div className="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
-              <h5 className="mb-0 fw-bold"><i className="bi bi-kanban me-2"></i> Proyectos Activos</h5>
-              <span className="badge bg-white text-primary rounded-pill px-3">{proyectosFiltradosFinal.length} En Curso</span>
-            </div>
-
-            {/* 2. CUERPO DE LA TABLA */}
-            <div className="table-responsive">
-              <Table hover responsive className="align-middle mb-0 bg-white">
-                <thead className="bg-light text-secondary">
-                  <tr>
-                    <th className="py-3 ps-3">ID / Centro</th>
-                    <th>Encargado</th>
-                    <th style={{width: '35%'}}>Misión Actual</th>
-                    <th className="text-center">Tiempo</th>
-                    <th className="text-center">Tiempo Total</th>
-                    <th className="text-center">Estado</th>
-                    <th className="text-center pe-3">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proyectosFiltradosFinal.map((item: any) => {
-                     // A. CÁLCULO DE TIEMPO (ENCARGADO ACTUAL)
-                     const fechaBaseActual = item.fechaAsignacion ? new Date(item.fechaAsignacion) : new Date(item.fechaCreacion);
-                     const diffTimeActual = Math.abs(new Date().getTime() - fechaBaseActual.getTime());
-                     const diasActual = Math.floor(diffTimeActual / (1000 * 60 * 60 * 24));
-
-                     // A2. CÁLCULO DE TIEMPO TOTAL (CON SALVAVIDAS PARA TICKETS FANTASMAS)
-                     let fechaBaseTotal = new Date(item.fechaCreacion); 
-                     
-                     if (item.historial && item.historial.length > 0) {
-                         const eventoDespertar = item.historial.find((h: any) => h.nota && !h.nota.includes('Hito creado en espera'));
-                         if (eventoDespertar) {
-                             fechaBaseTotal = new Date(eventoDespertar.fecha);
-                         } else if (item.fechaAsignacion) {
-                             // Salvavidas: Si el historial está pelado pero alguien lo trabaja
-                             fechaBaseTotal = new Date(item.fechaAsignacion);
-                         }
-                     } else if (item.fechaAsignacion) {
-                         fechaBaseTotal = new Date(item.fechaAsignacion);
-                     }
-
-                     const diffTimeTotal = Math.abs(new Date().getTime() - fechaBaseTotal.getTime());
-                     const diasTotal = Math.floor(diffTimeTotal / (1000 * 60 * 60 * 24));
-
-                     
-                     // B. ALERTA DE COLORES
-                     let relojColorActual = 'bg-light text-muted border'; 
-                     if (diasActual >= 7) relojColorActual = 'bg-warning text-dark border-warning';
-                     if (diasActual >= 15) relojColorActual = 'bg-danger text-white border-danger';
-
-                     let relojColorTotal = 'bg-light text-muted border'; 
-                     if (diasTotal >= 7) relojColorTotal = 'bg-warning text-dark border-warning';
-                     if (diasTotal >= 15) relojColorTotal = 'bg-danger text-white border-danger';
-
-                     // C. ESTADO
-                     let etiquetaEstado = item.status;
-                     let bgEstado = 'secondary';
-                     if (item.status === 'Pendiente') bgEstado = 'warning'; 
-                     if (item.status === 'En Revisión') bgEstado = 'info';  
-                     if (item.status === 'Concluido') bgEstado = 'success'; 
-                     
-                     const esVacante = !item.colaboradorAsignado;
-                     if (esVacante) { etiquetaEstado = 'Por Asignar'; bgEstado = 'primary'; }
-
-                     return (
-                      <tr key={item.id} className="border-bottom">
-                        <td className="ps-3">
-                           <span className="text-muted small fw-bold d-block">#{item.id}</span>
-                           <span className="fw-bold text-dark">{item.nombreCentro}</span>
-                        </td>
-                        <td>
-                          <div className="d-flex align-items-center gap-2">
-                             {!esVacante ? (
-                               <>
-                                 <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold shadow-sm" style={{width: '30px', height: '30px', fontSize: '12px'}}>
-                                   {item.colaboradorAsignado.username.charAt(0).toUpperCase()}
-                                 </div>
-                                 <span className="fw-bold text-dark small">{item.colaboradorAsignado.username}</span>
-                               </>
-                             ) : (
-                               <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">Vacante</span>
-                             )}
-                          </div>
-                        </td>
-                        <td>
-                          {item.casos && item.casos.length > 0 ? (
-                              <div className="d-flex flex-column">
-                                  <span className="fw-bold text-primary" style={{ fontSize: '0.95rem' }}>
-                                      {item.casos[0].descripcion.includes(':') 
-                                          ? item.casos[0].descripcion.split(':')[0] 
-                                          : (item.casos[0].tipo_servicio || 'Misión Activa')}
-                                  </span>
-                                  <span className="text-muted small text-truncate" style={{ maxWidth: '350px' }}>
-                                      {item.casos[0].descripcion.includes(':') 
-                                          ? item.casos[0].descripcion.split(':')[1] 
-                                          : item.casos[0].descripcion}
-                                  </span>
-                              </div>
-                          ) : (
-                              <span className="text-muted fst-italic small">Sin detalles...</span>
-                          )}
-                        </td>
-                        <td className="text-center" title="Tiempo con el encargado actual">
-                          <span className={`badge rounded-pill fw-normal ${relojColorActual}`} style={{minWidth: '45px'}}>
-                              {diasActual}d
-                          </span>
-                        </td>
-                        <td className="text-center" title="Tiempo desde que se creó el hito">
-                          <span className={`badge rounded-pill fw-normal ${relojColorTotal}`} style={{minWidth: '45px'}}>
-                              {diasTotal}d
-                          </span>
-                        </td>
-                        <td className="text-center"><Badge bg={bgEstado} className="fw-normal px-3">{etiquetaEstado}</Badge></td>
-                        <td className="text-center pe-3">
-                          <div className="d-flex gap-2 justify-content-center">
-                              {userRole !== 'Asesor' && (
-                                  <Button variant="outline-primary" size="sm" onClick={() => setViewingTask(item)} title="Gestionar Proyecto">Ver</Button>
-                              )}
-                              {(userRole === 'Administrador' || userRole === 'admin') && (
-                                  <Button variant="outline-danger" size="sm" onClick={async () => {
-                                          if(confirm("¿Estás seguro de borrar este proyecto permanentemente?")) {
-                                              await fetch(`${API_URL}/pendientes/${item.id}`, { method: 'DELETE' });
-                                              window.location.reload();
-                                          }
-                                      }} title="Eliminar del Sistema"><i className="bi bi-trash"></i></Button>
-                              )}
-                              {userRole === 'Asesor' && (
-                                  <span className="text-muted small fst-italic"><i className="bi bi-eye-slash me-1"></i>En Proceso</span>
-                              )}
-                          </div>
+          <>
+            {/* --- TABLA 1: PROYECTOS PRINCIPALES (Para el admin muestra todo, para el asesor solo los activos) --- */}
+            <div className="card shadow-sm border-0 overflow-hidden mb-4">
+              <div className="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                <h5 className="mb-0 fw-bold"><i className="bi bi-kanban me-2"></i> Proyectos Activos</h5>
+                <span className="badge bg-white text-primary rounded-pill px-3">{proyectosTablaPrincipal.length} {userRole === 'Asesor' ? 'En Curso' : 'Registros'}</span>
+              </div>
+              <div className="table-responsive">
+                <Table hover responsive className="align-middle mb-0 bg-white">
+                  <thead className="bg-light text-secondary">
+                    <tr>
+                      <th className="py-3 ps-3">ID / Centro</th>
+                      <th>Encargado</th>
+                      <th style={{width: '35%'}}>Misión Actual</th>
+                      <th className="text-center">Tiempo</th>
+                      <th className="text-center">Tiempo Total</th>
+                      <th className="text-center">Estado</th>
+                      <th className="text-center pe-3">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proyectosTablaPrincipal.map(dibujarFila)}
+                    {proyectosTablaPrincipal.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="text-center py-5 text-muted">
+                          <i className="bi bi-search fs-3 d-block mb-2"></i>
+                          No se encontraron proyectos con estos filtros.
                         </td>
                       </tr>
-                     );
-                  })}
-                  
-                  {/* Mensaje por si el filtro no encuentra nada */}
-                  {proyectosFiltradosFinal.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="text-center py-5 text-muted">
-                        <i className="bi bi-search fs-3 d-block mb-2"></i>
-                        No se encontraron proyectos con estos filtros.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
+                    )}
+                  </tbody>
+                </Table>
+              </div>
             </div>
-            <div className="card-footer bg-light text-end text-muted small py-2">
-              Mostrando {proyectosFiltradosFinal.length} proyectos
-            </div>
-          </div>
+
+            {/* --- TABLA 2: PROYECTOS CONCLUIDOS (Exclusivo para Asesores) --- */}
+            {userRole === 'Asesor' && proyectosTablaConcluidos.length > 0 && (
+              <div className="card shadow-sm border-0 overflow-hidden mb-5">
+                <div className="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0 fw-bold"><i className="bi bi-check2-circle me-2"></i> Proyectos Concluidos</h5>
+                  <span className="badge bg-white text-success rounded-pill px-3">{proyectosTablaConcluidos.length} Terminados</span>
+                </div>
+                <div className="table-responsive">
+                  <Table hover responsive className="align-middle mb-0 bg-white">
+                    <thead className="bg-light text-secondary">
+                      <tr>
+                        <th className="py-3 ps-3">ID / Centro</th>
+                        <th>Encargado</th>
+                        <th style={{width: '35%'}}>Misión Actual</th>
+                        <th className="text-center">Tiempo</th>
+                        <th className="text-center">Tiempo Total</th>
+                        <th className="text-center">Estado</th>
+                        <th className="text-center pe-3">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {proyectosTablaConcluidos.map(dibujarFila)}
+                    </tbody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </>
         );
       })()}
       {/* ================================================================ */}
@@ -2854,15 +2887,24 @@ return (
   // 🧠 CEREBRO DE FILTROS: CORREGIDO (SIN STANDBY)
   // ================================================================
 
+  // ================================================================
+  // 🧠 CEREBRO DE FILTROS: CORREGIDO (SIN STANDBY)
+  // ================================================================
+
   // 1. FILTRO BASE
   let filteredPendientes = pendientes.filter((task) => {
     const esTerminada = task.status === 'Concluido' || task.status === 'Detenido';
-    const esDormida = task.status === 'STANDBY'; // 👈 IDENTIFICAMOS LAS DORMIDAS
+    const esDormida = task.status === 'STANDBY'; 
+
+    // 👉 PASE VIP ASESORES: En su pantalla principal dejamos pasar tanto activas como terminadas
+    if ((userRole === 'Asesor' || user?.rol === 'Asesor') && modoVista !== 'historial') {
+        return !esDormida; 
+    }
 
     if (modoVista === 'historial') {
       return esTerminada; // Historial: Solo lo terminado
     } else {
-      // Activos: NI terminada, NI dormida (Solo lo que se puede trabajar)
+      // Activos (Admin/Otros): NI terminada, NI dormida
       return !esTerminada && !esDormida; 
     }
   });
@@ -2876,20 +2918,24 @@ return (
     );
   }
 
-  // 3. CANDADO ASESORES (LOGICA BLINDADA: POR PROPIEDAD DEL CENTRO) 🛡️
-  if (modoVista === 'historial' && (userRole === 'Asesor' || user?.rol === 'Asesor')) {
+  // 3. CANDADO ASESORES (LOGICA BLINDADA: POR PROPIEDAD DEL CENTRO O CREADOR) 🛡️
+  // 👉 Le quitamos el "modoVista === 'historial'" para que siempre los proteja en su pantalla principal
+  if (userRole === 'Asesor' || user?.rol === 'Asesor') {
       
-      // PASO A: Buscamos cuáles son los Nombres de los Colegios de este Asesor
-      // (Usamos tu listaCentros que ya sabemos que está correcta)
       const misCentros = listaCentros
           .filter(c => c.asesor === user.username || c.asesor === user.nombreCompleto)
           .map(c => c.nombre);
 
-      // PASO B: Filtramos las tareas cuyo nombre de centro coincida con mis colegios
-      // O si la tarea tiene mi firma directa. (Doble validación)
       filteredPendientes = filteredPendientes.filter(task => {
           const esMiColegio = misCentros.includes(task.nombreCentro);
-          const soyElAsesor = task.asesor?.id == user?.id; // Doble igual por si acaso
+          
+          // 👉 AMPLIAMOS LA BÚSQUEDA: Cazamos a Griselda ya sea por ID, por Username o si firmó como 'creadoPor'
+          const soyElAsesor = 
+              task.asesor?.id == user?.id || 
+              task.asesor?.username === user?.username ||
+              task.asesor === user?.username ||
+              task.creadorId == user?.id ||
+              task.creadoPor === user?.username; 
           
           return esMiColegio || soyElAsesor;
       });
