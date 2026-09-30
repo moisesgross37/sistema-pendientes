@@ -93,12 +93,18 @@ export class PendientesService {
          fechaAsignacionInicial = new Date();
     }
 
+    console.log("🔴 DATOS RECIBIDOS EN EL BACKEND:", createPendienteDto);
+    console.log("🟢 CREADOR ID QUE SE VA A GUARDAR:", createPendienteDto.creadorId);
+
     const nuevo = this.pendientesRepository.create({
         nombreCentro, asesor, area: area || 'Produccion', colaboradorAsignado: colaboradorFinal,
         status: statusInicial, fechaAsignacion: fechaAsignacionInicial, fechaCreacion: new Date(),
         // 👇 AQUÍ USAMOS LA VARIABLE nombreAutor EN LUGAR DE 'SISTEMA'
         historial: [{ fecha: new Date(), autor: nombreAutor, nota: 'Creación', accion: 'Creación' }],
-        casos: casos, esHito: createPendienteDto.esHito, eventoKey: createPendienteDto.eventoKey, tipoHito: createPendienteDto.tipoHito
+        casos: casos, esHito: createPendienteDto.esHito, eventoKey: createPendienteDto.eventoKey, tipoHito: createPendienteDto.tipoHito,
+        
+        // 🚀 NUEVO: Guardamos la huella imborrable de quien realmente lo creó
+        creadorId: createPendienteDto.creadorId 
     });
     return this.pendientesRepository.save(nuevo);
   }
@@ -122,7 +128,14 @@ export class PendientesService {
   }
   
   async findForColaborador(userId: number) { 
-    return this.pendientesRepository.find({ where: { colaboradorAsignado: { id: userId } }, relations: ['casos', 'asesor'], order: { id: 'DESC' } }); 
+    return this.pendientesRepository.find({ 
+      where: [
+        { colaboradorAsignado: { id: userId } }, // Lo que tiene asignado
+        { creadorId: userId }                    // O lo que ella creó
+      ], 
+      relations: ['casos', 'asesor', 'colaboradorAsignado'], 
+      order: { id: 'DESC' } 
+    }); 
   }
 
  // 3. UPDATE & DOMINÓ (Versión con registro de transferencia)

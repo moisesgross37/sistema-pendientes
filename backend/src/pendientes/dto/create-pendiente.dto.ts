@@ -41,6 +41,11 @@ export class CreatePendienteDto {
   @IsNumber()
   asesorId: number; // 👈 Este era el que faltaba y rompía el servicio
 
+  @IsOptional()
+  @IsNumber()
+  creadorId?: number;
+
+
   @IsString()
   @IsOptional()
   area?: string; 

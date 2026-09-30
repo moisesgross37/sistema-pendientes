@@ -63,7 +63,8 @@ export class Pendiente {
   tipoHito: string; // Ej: 'RECOLECCION', 'ENCUESTA'
 
   // =================================================================
-
+@Column({ nullable: true })
+  creadorId: number;
   // --- RELACIONES ---
 
   @ManyToOne(() => Usuario, { eager: true })

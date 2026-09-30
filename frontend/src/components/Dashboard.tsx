@@ -578,8 +578,9 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
     try {
         const datosSolicitud = {
             nombreCentro: newNombreCentro, 
-            asesorId: user.id, // Usamos el ID que sacamos del token
+            asesorId: user.id, 
             area: 'Coordinacion Administrativa', 
+            creadorId: user.id,  // 👈 NUEVO: La huella de quien lo creó
             casos: [
                 {
                     tipo_servicio: 'OTRO',
@@ -704,6 +705,7 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<Pendiente | null>(nul
       const body = {
         nombreCentro: newNombreCentro, // Usamos tu variable original
         asesorId: asesorId,
+        creadorId: asesorId, // 👈 NUEVO: El servidor ahora sabrá quién lo creó realmente
         casos: casosParaEnviar,
       };
 
@@ -2636,9 +2638,10 @@ return (
                 <td className="text-center"><Badge bg={bgEstado} className="fw-normal px-3">{etiquetaEstado}</Badge></td>
                 <td className="text-center pe-3">
                   <div className="d-flex gap-2 justify-content-center">
-                      {userRole !== 'Asesor' && (
-                          <Button variant="outline-primary" size="sm" onClick={() => setViewingTask(item)} title="Gestionar Proyecto">Ver</Button>
-                      )}
+                      {/* TODOS ven el botón Ver */}
+                      <Button variant="outline-primary" size="sm" onClick={() => setViewingTask(item)} title="Ver Detalles">Ver</Button>
+                      
+                      {/* Solo Admin ve el botón de Eliminar */}
                       {(userRole === 'Administrador' || userRole === 'admin') && (
                           <Button variant="outline-danger" size="sm" onClick={async () => {
                                   if(confirm("¿Estás seguro de borrar este proyecto permanentemente?")) {
@@ -2646,9 +2649,6 @@ return (
                                       window.location.reload();
                                   }
                               }} title="Eliminar del Sistema"><i className="bi bi-trash"></i></Button>
-                      )}
-                      {userRole === 'Asesor' && (
-                          <span className="text-muted small fst-italic"><i className="bi bi-eye-slash me-1"></i>En Proceso</span>
                       )}
                   </div>
                 </td>
@@ -3129,7 +3129,7 @@ return (
                   {/* ZONA DE ACCIÓN (PIE) */}
                   <div className="p-3 bg-white border-top shadow-lg z-3">
                       {/* Selector de Transferencia (BLOQUE CORREGIDO) */}
-                      {viewingTask.status !== 'Concluido' && (
+                      {viewingTask.status !== 'Concluido' && userRole !== 'Asesor' && (
                           <div className="input-group input-group-sm mb-3">
                               <span className="input-group-text bg-light fw-bold text-muted">Transferir a:</span>
                               
@@ -3158,7 +3158,7 @@ return (
 
                       {/* Botones Principales (Tamaño Normal) */}
                       <div className="d-grid gap-2">
-                          {viewingTask.status !== 'En Revisión' && viewingTask.status !== 'Concluido' && (
+                          {viewingTask.status !== 'En Revisión' && viewingTask.status !== 'Concluido' && userRole !== 'Asesor' && (
                               <Button variant="success" className="fw-bold shadow-sm" onClick={() => handleEnviarARevision && handleEnviarARevision(viewingTask)}>
                                 <i className="bi bi-send-check me-2"></i> SOLICITAR REVISIÓN
                               </Button>
